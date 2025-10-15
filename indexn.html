@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrivateBrowser</title>
+<style>
+  body { font-family: Arial; margin:0; padding:0; background:#fff; color:#000; transition:0.3s; }
+  body.dark { background:#121212; color:#eee; }
+  #mainUI { display:none; padding:10px; }
+  #signupForm, #loginForm { max-width:400px; margin:50px auto; display:flex; flex-direction:column; gap:10px; }
+  input { padding:8px; font-size:14px; }
+  button { padding:8px; cursor:pointer; }
+  #darkToggle { position:fixed; top:10px; right:10px; }
+  iframe { width:100%; height:400px; border:1px solid #ccc; }
+</style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- Country selection -->
+<div id="countrySelectDiv">
+  <h2>Select your country to continue</h2>
+  <select id="countrySelect">
+    <option value="">--Select--</option>
+    <option value="QA">Qatar</option>
+    <option value="US">USA</option>
+    <option value="GB">UK</option>
+    <!-- add more -->
+  </select>
+  <button id="countrySubmitBtn">Continue</button>
+</div>
+
+<!-- Signup Form -->
+<div id="signupForm" style="display:none;">
+  <h2>Sign Up</h2>
+  <input type="text" id="signupUsername" placeholder="Username">
+  <input type="email" id="signupEmail" placeholder="Email">
+  <input type="password" id="signupPwd" placeholder="Password">
+  <input type="password" id="signupPwdConfirm" placeholder="Confirm Password">
+  <button id="signupBtn">Sign Up</button>
+  <p>Already have an account? <a href="#" id="showLogin">Log In</a></p>
+</div>
+
+<!-- Login Form -->
+<div id="loginForm" style="display:none;">
+  <h2>Log In</h2>
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPwd" placeholder="Password">
+  <button id="loginBtn">Log In</button>
+  <p>Don't have an account? <a href="#" id="showSignup">Sign Up</a></p>
+</div>
+
+<!-- Main UI -->
+<div id="mainUI">
+  <button id="darkToggle">Toggle Dark Mode</button>
+  <h2>Private Browser</h2>
+  <div>
+    <span id="localTime"></span> |
+    <span id="localWeather"></span>
+  </div>
+  <div>
+    <iframe id="browserFrame" src="https://example.com"></iframe>
+  </div>
+  <h3>Top Al Jazeera Headlines</h3>
+  <ul id="headlines"></ul>
+</div>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBGHeWUadxbnrExIbDAEarBhjWsugXYtSI",
+    authDomain: "pribrows.firebaseapp.com",
+    projectId: "pribrows",
+    storageBucket: "pribrows.firebasestorage.app",
+    messagingSenderId: "795798706881",
+    appId: "1:795798706881:web:e2ce3b6a43b8a042079240"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  // Country selection
+  const countryDiv = document.getElementById('countrySelectDiv');
+  const countrySubmit = document.getElementById('countrySubmitBtn');
+  countrySubmit.onclick = () => {
+    if (!document.getElementById('countrySelect').value) return alert("Select a country");
+    countryDiv.style.display = 'none';
+    document.getElementById('signupForm').style.display = 'block';
+  };
+
+  // Toggle forms
+  document.getElementById('showLogin').onclick = () => { signupForm.style.display='none'; loginForm.style.display='block'; };
+  document.getElementById('showSignup').onclick = () => { loginForm.style.display='none'; signupForm.style.display='block'; };
+  const signupForm = document.getElementById('signupForm');
+  const loginForm = document.getElementById('loginForm');
+
+  // Signup
+  document.getElementById('signupBtn').onclick = async () => {
+    const username = document.getElementById('signupUsername').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const pwd = document.getElementById('signupPwd').value;
+    const pwdC = document.getElementById('signupPwdConfirm').value;
+    if (!username || !email || !pwd || !pwdC) return alert("Fill all fields");
+    if (pwd !== pwdC) return alert("Passwords do not match");
+    try {
+      const userCred = await auth.createUserWithEmailAndPassword(email,pwd);
+      await userCred.user.updateProfile({ displayName: username });
+      await userCred.user.sendEmailVerification();
+      alert("Account created! Check email to verify before login.");
+      signupForm.style.display='none'; loginForm.style.display='block';
+    } catch(err){ alert(err.message); }
+  };
+
+  // Login
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pwd = document.getElementById('loginPwd').value;
+    if (!email || !pwd) return alert("Fill all fields");
+    try {
+      const userCred = await auth.signInWithEmailAndPassword(email,pwd);
+      if (!userCred.user.emailVerified) {
+        alert("Verify email first"); await auth.signOut(); return;
+      }
+      loginForm.style.display='none';
+      document.getElementById('mainUI').style.display='block';
+      startBrowserFeatures();
+    } catch(err){ alert(err.message); }
+  };
+
+  // Dark mode
+  document.getElementById('darkToggle').onclick = ()=>document.body.classList.toggle('dark');
+
+  // Browser features
+  function startBrowserFeatures() {
+    // Time 12hr format
+    function updateTime() {
+      const now = new Date();
+      let hrs = now.getHours();
+      const ampm = hrs >= 12 ? 'PM' : 'AM';
+      hrs = hrs % 12; hrs = hrs? hrs:12;
+      const mins = now.getMinutes().toString().padStart(2,'0');
+      document.getElementById('localTime').innerText = `Time: ${hrs}:${mins} ${ampm}`;
+    }
+    setInterval(updateTime,1000); updateTime();
+
+    // Weather
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(async pos=>{
+        const lat=pos.coords.latitude, lon=pos.coords.longitude;
+        try{
+          const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+          const data=await res.json();
+          document.getElementById('localWeather').innerText=`Weather: ${data.current_weather.temperature}°C`;
+        }catch(e){ document.getElementById('localWeather').innerText="Weather: N/A"; }
+      });
+    }
+
+    // Al Jazeera headlines (RSS)
+    fetch('https://api.rss2json.com/v1/api.json?rss_url=https://www.aljazeera.com/xml/rss/all.xml')
+      .then(r=>r.json())
+      .then(data=>{
+        const ul=document.getElementById('headlines');
+        ul.innerHTML='';
+        data.items.slice(0,5).forEach(i=>{
+          const li=document.createElement('li');
+          const a=document.createElement('a'); a.href=i.link; a.target="_blank"; a.innerText=i.title;
+          li.appendChild(a); ul.appendChild(li);
+        });
+      }).catch(()=>{ document.getElementById('headlines').innerText="Failed to load headlines"; });
+  }
+</script>
+</body>
+</html>
