@@ -5,10 +5,10 @@
 <title>PriBrows</title>
 <style>
   body { margin:0; font-family: Arial; background:#1e1e1e; color:white; }
-  #search-bar { width: 100%; padding: 10px; font-size: 18px; box-sizing: border-box; }
-  #browser-frame { width:100%; height:70vh; border:none; }
   #top-bar { padding:10px; display:flex; justify-content:space-between; align-items:center; background:#2e2e2e;}
+  #search-bar { width: 70%; padding: 8px; font-size:16px; }
   #time { font-size:16px; }
+  #browser-frame { width:100%; height:75vh; border:none; margin-top:0; }
 </style>
 </head>
 <body>
@@ -23,7 +23,7 @@
 <iframe id="browser-frame"></iframe>
 
 <script>
-// ----- 12-hour local time -----
+// --------- 12-hour local time ---------
 function updateTime(){
     const now = new Date();
     let hours = now.getHours();
@@ -37,18 +37,31 @@ function updateTime(){
 setInterval(updateTime, 1000);
 updateTime();
 
-// ----- Simple search bar + iframe -----
+// --------- Search / navigation ---------
 const searchBar = document.getElementById('search-bar');
 const iframe = document.getElementById('browser-frame');
 
 searchBar.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){
-        let query = searchBar.value.trim();
-        if(query.startsWith('http://') || query.startsWith('https://')){
-            iframe.src = query;
-        } else {
-            iframe.src = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+        let input = searchBar.value.trim();
+
+        // Add http:// if user forgot it
+        if(!input.startsWith('http://') && !input.startsWith('https://') && input.includes('.')){
+            input = 'https://' + input;
         }
+
+        // Try loading in iframe
+        iframe.src = input;
+
+        // Timeout to detect blocked iframe (X-Frame-Options)
+        setTimeout(() => {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            if(!doc || doc.body.innerHTML === ""){
+                // Blocked or empty → open in new tab
+                window.open(input, '_blank');
+                iframe.src = ""; // clear iframe
+            }
+        }, 500); // half a second wait
     }
 });
 </script>
