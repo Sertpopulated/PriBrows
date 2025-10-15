@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>PriBrows</title>
-  <style>
-    body { margin:0; font-family: Arial, sans-serif; background:#1e1e1e; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-    #home { text-align:center; }
-    #start-btn { padding:15px 30px; font-size:18px; cursor:pointer; background:#4CAF50; border:none; border-radius:5px; color:white; }
-    #browser-container { display:none; flex-direction:column; width:100%; height:100vh; }
-    #top-bar { padding:10px; display:flex; justify-content:space-between; align-items:center; background:#2e2e2e;}
-    #search-bar { width:70%; padding:8px; font-size:16px; }
-    #time { font-size:16px; }
-    #browser-frame { width:100%; height:75vh; border:none; margin-top:0; }
-    #search-results { max-height: 60vh; overflow-y: auto; background:#333; width:100%; color:white; padding:10px; display:none; }
-    .result { padding:10px; border-bottom:1px solid #444; cursor:pointer; }
-    .result:hover { background:#555; }
-  </style>
+<meta charset="UTF-8">
+<title>PriBrows</title>
+<style>
+  body { margin:0; font-family: Arial, sans-serif; background:#1e1e1e; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+  #home { text-align:center; }
+  #start-btn { padding:15px 30px; font-size:18px; cursor:pointer; background:#4CAF50; border:none; border-radius:5px; color:white; }
+  #browser-container { display:none; flex-direction:column; width:100%; height:100vh; }
+  #top-bar { padding:10px; display:flex; justify-content:space-between; align-items:center; background:#2e2e2e;}
+  #search-bar { width:70%; padding:8px; font-size:16px; }
+  #time { font-size:16px; }
+  #browser-frame { width:100%; height:60vh; border:none; margin-top:0; }
+  #search-results { max-height:35vh; overflow-y:auto; background:#333; width:100%; color:white; padding:10px; display:none; }
+  .result { padding:10px; border-bottom:1px solid #444; cursor:pointer; }
+  .result:hover { background:#555; }
+</style>
 </head>
 <body>
 
@@ -64,34 +64,43 @@ function updateTime(){
 setInterval(updateTime, 1000);
 updateTime();
 
+// --------- DuckDuckGo JSONP callback ---------
+function displayResults(data){
+    if(data.RelatedTopics && data.RelatedTopics.length > 0){
+        searchResults.innerHTML = data.RelatedTopics.map(topic=>{
+            if(topic.FirstURL && topic.Text){
+                return `<div class="result" onclick="window.open('${topic.FirstURL}','_blank')">${topic.Text}</div>`;
+            }
+            return '';
+        }).join('');
+        searchResults.style.display = 'block';
+    } else {
+        searchResults.style.display = 'none';
+    }
+}
+
 // --------- Search / navigation ---------
 searchBar.addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){
+    if(e.key==='Enter'){
         let input = searchBar.value.trim();
 
-        // If input starts with 'http://' or 'https://', treat it as a URL
-        if(input.startsWith('http://') || input.startsWith('https://')) {
+        // If input is a URL
+        if(input.startsWith('http://') || input.startsWith('https://')){
             iframe.src = input;
             searchResults.style.display = 'none';
+            setTimeout(()=>{
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                if(!doc || doc.body.innerHTML===""){
+                    // Blocked → open in new tab
+                    window.open(input,'_blank');
+                    iframe.src="";
+                }
+            }, 500);
         } else {
-            // Otherwise, treat it as a search query
-            fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(input)}&format=json&no_html=1&no_redirect=1`)
-                .then(response => response.json())
-                .then(data => {
-                    if(data.RelatedTopics && data.RelatedTopics.length > 0) {
-                        searchResults.innerHTML = data.RelatedTopics.map(result => `
-                            <div class="result" onclick="window.open('${result.FirstURL}', '_blank')">
-                                <strong>${result.Text}</strong>
-                            </div>
-                        `).join('');
-                        searchResults.style.display = 'block';
-                    } else {
-                        searchResults.style.display = 'none';
-                    }
-                })
-                .catch(() => {
-                    searchResults.style.display = 'none';
-                });
+            // Treat as a search query using DuckDuckGo JSONP
+            const script = document.createElement('script');
+            script.src = `https://api.duckduckgo.com/?q=${encodeURIComponent(input)}&format=json&callback=displayResults&no_redirect=1&no_html=1`;
+            document.body.appendChild(script);
         }
     }
 });
