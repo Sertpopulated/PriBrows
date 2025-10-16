@@ -2,109 +2,348 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PriBrows</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PriBrows Full</title>
 <style>
-  body { margin:0; font-family: Arial, sans-serif; background:#1e1e1e; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-  #home { text-align:center; }
-  #start-btn { padding:15px 30px; font-size:18px; cursor:pointer; background:#4CAF50; border:none; border-radius:5px; color:white; }
-  #browser-container { display:none; flex-direction:column; width:100%; height:100vh; }
-  #top-bar { padding:10px; display:flex; justify-content:space-between; align-items:center; background:#2e2e2e;}
-  #search-bar { width:70%; padding:8px; font-size:16px; }
-  #time { font-size:16px; }
-  #browser-frame { width:100%; height:60vh; border:none; margin-top:0; }
-  #search-results { max-height:35vh; overflow-y:auto; background:#333; width:100%; color:white; padding:10px; display:none; }
-  .result { padding:10px; border-bottom:1px solid #444; cursor:pointer; }
-  .result:hover { background:#555; }
+body { font-family: sans-serif; background: #f4f4f4; margin:0; padding:0; }
+#loginDiv, #portalDiv, #homeDiv, #chatDiv { padding:20px; }
+#portalDiv, #homeDiv, #chatDiv { display:none; }
+#chatList li { cursor:pointer; margin:5px 0; }
+#messageList div { margin:3px 0; padding:2px 5px; background:#fff; border-radius:5px; }
+#searchBar { display:none; }
 </style>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, serverTimestamp, updateDoc, arrayUnion, arrayRemove, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDatabase, ref as rtdbRef, set as rtdbSet, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBGHeWUadxbnrExIbDAEarBhjWsugXYtSI",
+  authDomain: "pribrows.firebaseapp.com",
+  projectId: "pribrows",
+  storageBucket: "pribrows.appspot.com",
+  messagingSenderId: "795798706881",
+  appId: "1:795798706881:web:e2ce3b6a43b8a042079240"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+const storage = getStorage(app);
+
+// --- UI Elements ---
+const loginDiv = document.getElementById('loginDiv');
+const portalDiv = document.getElementById('portalDiv');
+const homeDiv = document.getElementById('homeDiv');
+const chatDiv = document.getElementById('chatDiv');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+const loginBtn = document.getElementById('loginBtn');
+const signupBtn = document.getElementById('signupBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const timeSpan = document.getElementById('timeSpan');
+const weatherSpan = document.getElementById('weatherSpan');
+const searchBtn = document.getElementById('searchBtn');
+const searchBar = document.getElementById('searchBar');
+const searchInput = document.getElementById('searchInput');
+const searchGo = document.getElementById('searchGo');
+
+let currentUser = null;
+
+// --- Auth ---
+loginBtn.onclick = async () => {
+  try { await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value); }
+  catch(e){ alert(e.message); }
+};
+signupBtn.onclick = async () => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth,emailInput.value,passwordInput.value);
+    await sendEmailVerification(userCredential.user);
+    await setDoc(doc(db,'users',userCredential.user.uid),{
+      email: emailInput.value,
+      displayName: emailInput.value.split('@')[0],
+      createdAt: serverTimestamp(),
+      friends: [], pinnedChats: [], blockedUsers: [], status: 'Hey! I am on PriBrows Chat', dailyStreak: 1
+    });
+    alert('Verification email sent!');
+  } catch(e){ alert(e.message); }
+};
+logoutBtn.onclick = () => signOut(auth);
+
+onAuthStateChanged(auth,user=>{
+  if(user){
+    currentUser = user;
+    loginDiv.style.display='none';
+    portalDiv.style.display='block';
+    homeDiv.style.display='block';
+    chatDiv.style.display='block';
+    initPresence();
+    updateTime();
+    getWeather();
+  } else {
+    loginDiv.style.display='block';
+    portalDiv.style.display='none';
+    homeDiv.style.display='none';
+    chatDiv.style.display='none';
+    currentUser=null;
+  }
+});
+
+// --- Presence ---
+function initPresence(){
+  const presenceRef = rtdbRef(rtdb, `presence/${currentUser.uid}`);
+  rtdbSet(presenceRef,{state:'online',lastSeen:Date.now()});
+  onDisconnect(presenceRef).set({state:'offline',lastSeen:Date.now()});
+}
+
+// --- Local Time ---
+function updateTime(){
+  setInterval(()=>{
+    const now = new Date();
+    let h = now.getHours();
+    const ampm = h>=12?'PM':'AM';
+    h=h%12; if(h===0) h=12;
+    const m = String(now.getMinutes()).padStart(2,'0');
+    timeSpan.textContent=`${h}:${m} ${ampm}`;
+  },1000);
+}
+
+// --- Weather ---
+async function getWeather(){
+  try{
+    const loc = await fetch('https://ipapi.co/json/').then(r=>r.json());
+    const key='YOUR_OPENWEATHERMAP_API_KEY';
+    const w = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${loc.latitude}&lon=${loc.longitude}&units=metric&appid=${key}`).then(r=>r.json());
+    weatherSpan.textContent=`${w.name}: ${w.main.temp}°C, ${w.weather[0].main}`;
+  } catch(e){ weatherSpan.textContent='Weather unavailable'; }
+}
+
+// --- Search toggle ---
+searchBtn.onclick=()=>{ searchBar.style.display='block'; };
+searchGo.onclick=()=>{ const q=searchInput.value; window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`,'_blank'); };
+
+</script>
 </head>
 <body>
-
-<!-- Home page -->
-<div id="home">
-  <h1>Welcome to PriBrows</h1>
-  <p>Your private mini-browser</p>
-  <button id="start-btn">Search</button>
+<div id="loginDiv">
+<h2>Login / Signup</h2>
+<input id="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
+<button id="loginBtn">Login</button>
+<button id="signupBtn">Sign Up</button>
 </div>
 
-<!-- Browser interface -->
-<div id="browser-container">
-  <div id="top-bar">
-    <input type="text" id="search-bar" placeholder="Enter URL or search query">
-    <div id="time"></div>
-  </div>
-  <iframe id="browser-frame"></iframe>
-  <div id="search-results"></div>
+<div id="portalDiv">
+<h2>Portal - Welcome!</h2>
+<span>Local Time: <span id="timeSpan"></span></span><br>
+<span>Weather: <span id="weatherSpan"></span></span><br>
+<button id="logoutBtn">Logout</button>
+<button id="searchBtn">Search Web</button>
+<div id="searchBar"><input id="searchInput"><button id="searchGo">Go</button></div>
 </div>
 
-<script>
-// --------- Show browser after clicking button ---------
-const startBtn = document.getElementById('start-btn');
-const home = document.getElementById('home');
-const browserContainer = document.getElementById('browser-container');
-const searchBar = document.getElementById('search-bar');
-const iframe = document.getElementById('browser-frame');
-const searchResults = document.getElementById('search-results');
+<div id="homeDiv">
+<h3>Home Page</h3>
+<p>Access your chats, friends, pinned chats, and settings here.</p>
+</div>
 
-startBtn.addEventListener('click', () => {
-    home.style.display = 'none';
-    browserContainer.style.display = 'flex';
-});
+<div id="chatDiv">
+<h2>Chats</h2>
+<ul id="chatList"></ul>
+<h3>Messages</h3>
+<div id="messageList" style="height:300px;overflow-y:auto;background:#ddd;padding:5px;"></div>
+<input id="messageInput" placeholder="Type a message"><button id="sendBtn">Send</button>
+</div>
+<!— Part 2: Chat Engine —>
+<script type="module">
+const chatListElement = document.getElementById('chatList');
+const messageListElement = document.getElementById('messageList');
+const messageInputElement = document.getElementById('messageInput');
+const sendBtnElement = document.getElementById('sendBtn');
 
-// --------- 12-hour local time ---------
-function updateTime(){
-    const now = new Date();
-    let hours = now.getHours();
-    let minutes = now.getMinutes();
-    let ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    minutes = minutes < 10 ? '0'+minutes : minutes;
-    document.getElementById('time').innerText = hours+':'+minutes+' '+ampm;
-}
-setInterval(updateTime, 1000);
-updateTime();
+let currentChatId = null;
 
-// --------- DuckDuckGo JSONP callback ---------
-function displayResults(data){
-    if(data.RelatedTopics && data.RelatedTopics.length > 0){
-        searchResults.innerHTML = data.RelatedTopics.map(topic=>{
-            if(topic.FirstURL && topic.Text){
-                return `<div class="result" onclick="window.open('${topic.FirstURL}','_blank')">${topic.Text}</div>`;
-            }
-            return '';
-        }).join('');
-        searchResults.style.display = 'block';
-    } else {
-        searchResults.style.display = 'none';
-    }
+// Load chats for user
+async function loadChats(){
+  const q = query(collection(db,'chats'),orderBy('createdAt','desc'));
+  onSnapshot(q,snapshot=>{
+    chatListElement.innerHTML='';
+    snapshot.forEach(doc=>{
+      const c=doc.data();
+      const li=document.createElement('li');
+      li.textContent=c.title;
+      li.onclick=()=>openChat(doc.id);
+      chatListElement.appendChild(li);
+    });
+  });
 }
 
-// --------- Search / navigation ---------
-searchBar.addEventListener('keydown', function(e){
-    if(e.key==='Enter'){
-        let input = searchBar.value.trim();
+async function openChat(chatId){
+  currentChatId=chatId;
+  messageListElement.innerHTML='';
+  const messagesRef=collection(db,'chats',chatId,'messages');
+  const q=query(messagesRef,orderBy('createdAt','asc'));
+  onSnapshot(q,snapshot=>{
+    messageListElement.innerHTML='';
+    snapshot.forEach(doc=>{
+      const m=doc.data();
+      const div=document.createElement('div');
+      div.textContent=`${m.senderId}: ${m.text||'[Attachment]'} ${m.reactions?JSON.stringify(m.reactions):''}`;
+      messageListElement.appendChild(div);
+    });
+  });
+}
 
-        // If input is a URL
-        if(input.startsWith('http://') || input.startsWith('https://')){
-            iframe.src = input;
-            searchResults.style.display = 'none';
-            setTimeout(()=>{
-                const doc = iframe.contentDocument || iframe.contentWindow.document;
-                if(!doc || doc.body.innerHTML===""){
-                    // Blocked → open in new tab
-                    window.open(input,'_blank');
-                    iframe.src="";
-                }
-            }, 500);
-        } else {
-            // Treat as a search query using DuckDuckGo JSONP
-            const script = document.createElement('script');
-            script.src = `https://api.duckduckgo.com/?q=${encodeURIComponent(input)}&format=json&callback=displayResults&no_redirect=1&no_html=1`;
-            document.body.appendChild(script);
-        }
-    }
+sendBtnElement.onclick=async()=>{
+  if(!currentChatId) return alert('Select a chat');
+  const text=messageInputElement.value;
+  if(!text) return;
+  await addDoc(collection(db,'chats',currentChatId,'messages'),{
+    senderId: currentUser.uid,
+    text,
+    createdAt: serverTimestamp(),
+    reactions:{},
+    deleted:false
+  });
+  messageInputElement.value='';
+}
+
+// Initialize chat loading once user is authenticated
+onAuthStateChanged(auth,user=>{
+  if(user){ loadChats(); }
 });
+</script><!— Part 3: Advanced Chat Features —>
+<script type="module">
+// --- Advanced chat features ---
+// Typing indicator placeholder
+let typingTimeout;
+function showTyping(chatId, userId){
+  const msgDiv=document.createElement('div');
+  msgDiv.textContent=`${userId} is typing...`;
+  msgDiv.style.fontStyle='italic';
+  messageListElement.appendChild(msgDiv);
+  clearTimeout(typingTimeout);
+  typingTimeout=setTimeout(()=>{ msgDiv.remove(); },3000);
+}
+
+messageInputElement.addEventListener('input',()=>{
+  if(currentChatId && currentUser){ showTyping(currentChatId,currentUser.uid); }
+});
+
+// Pinned chats & friends placeholder
+async function pinChat(chatId){
+  const userRef=doc(db,'users',currentUser.uid);
+  await updateDoc(userRef,{ pinnedChats: arrayUnion(chatId) });
+}
+async function unpinChat(chatId){
+  const userRef=doc(db,'users',currentUser.uid);
+  await updateDoc(userRef,{ pinnedChats: arrayRemove(chatId) });
+}
+
+async function addFriend(friendUid){
+  const userRef=doc(db,'users',currentUser.uid);
+  await updateDoc(userRef,{ friends: arrayUnion(friendUid) });
+}
+async function removeFriend(friendUid){
+  const userRef=doc(db,'users',currentUser.uid);
+  await updateDoc(userRef,{ friends: arrayRemove(friendUid) });
+}
+
+// Private/E2EE chat skeleton
+function encryptMessage(text){ return text; /* placeholder for encryption */ }
+function decryptMessage(text){ return text; /* placeholder for decryption */ }
+
+// Attachment placeholder
+async function uploadAttachment(file){
+  const ref = storageRef(storage, `attachments/${currentChatId}/${file.name}`);
+  await uploadBytes(ref, file);
+  const url = await getDownloadURL(ref);
+  return url;
+}
 </script>
+<!— Part 4: Whiteboard, Themes, and Portal Settings —>
+<script type="module">
+// --- Shared whiteboard ---
+const whiteboardDiv = document.createElement('div');
+whiteboardDiv.style.width='100%';
+whiteboardDiv.style.height='300px';
+whiteboardDiv.style.border='1px solid #000';
+whiteboardDiv.style.background='#fff';
+portalDiv.appendChild(whiteboardDiv);
+const canvasCtx = whiteboardDiv.getContext ? whiteboardDiv.getContext('2d') : null;
+let drawing=false;
+whiteboardDiv.addEventListener('mousedown',()=>{ drawing=true; });
+whiteboardDiv.addEventListener('mouseup',()=>{ drawing=false; canvasCtx.beginPath(); });
+whiteboardDiv.addEventListener('mousemove',(e)=>{
+  if(!drawing || !canvasCtx) return;
+  canvasCtx.lineWidth=2;
+  canvasCtx.lineCap='round';
+  canvasCtx.strokeStyle='#000';
+  canvasCtx.lineTo(e.offsetX,e.offsetY);
+  canvasCtx.stroke();
+  canvasCtx.beginPath();
+  canvasCtx.moveTo(e.offsetX,e.offsetY);
+});
 
+// --- Themes ---
+function setTheme(bgColor,textColor){
+  document.body.style.background=bgColor;
+  document.body.style.color=textColor;
+}
+// Example buttons to switch themes
+const darkBtn=document.createElement('button'); darkBtn.textContent='Dark Theme'; darkBtn.onclick=()=>setTheme('#111','#eee'); portalDiv.appendChild(darkBtn);
+const lightBtn=document.createElement('button'); lightBtn.textContent='Light Theme'; lightBtn.onclick=()=>setTheme('#f4f4f4','#000'); portalDiv.appendChild(lightBtn);
+
+// --- Daily streak tracking ---
+async function updateDailyStreak(){
+  const userRef=doc(db,'users',currentUser.uid);
+  const userSnap=await getDoc(userRef);
+  if(userSnap.exists()){
+    const lastLogin=userSnap.data().lastLogin?.toDate?.() || null;
+    const now=new Date();
+    let streak=userSnap.data().dailyStreak||1;
+    if(lastLogin){
+      const diff=Math.floor((now-lastLogin)/(1000*60*60*24));
+      if(diff===1) streak++;
+      else if(diff>1) streak=1;
+    }
+    await updateDoc(userRef,{ dailyStreak: streak, lastLogin: serverTimestamp() });
+  }
+}
+onAuthStateChanged(auth,user=>{ if(user) updateDailyStreak(); });
+</script>
+<!— Part 5: Final Wiring and UI Polish —>
+<script type="module">
+// --- Final event listeners and polish ---
+function initUI(){
+  // Placeholder for future UI enhancements, modals, dropdowns
+}
+
+// --- Firestore Realtime integration for whiteboard placeholder ---
+// Can be extended later with cloud functions for collaboration
+
+// --- Attachments handling ---
+document.addEventListener('change',async(e)=>{
+  if(e.target && e.target.type==='file'){
+    const file=e.target.files[0];
+    if(file){
+      const url = await uploadAttachment(file);
+      if(currentChatId){
+        await addDoc(collection(db,'chats',currentChatId,'messages'),{
+          senderId: currentUser.uid,
+          text:'[Attachment]',
+          attachmentUrl:url,
+          createdAt:serverTimestamp()
+        });
+      }
+    }
+  }
+});
+
+// --- Startup ---
+initUI();
+</script>
 </body>
 </html>
