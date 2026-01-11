@@ -537,12 +537,10 @@
   dreemTab.addEventListener('click', () => showView('dreem'));
 
   // ======================
-  // AUTH
+  // AUTH (FIXED: NO FORCED SIGN-OUT)
   // ======================
   async function checkAuthState() {
-    // 🔥 Remove this line later if you want persistent login
-    await supabase.auth.signOut();
-
+    // ✅ FIXED: Removed forced signOut()
     const {  { session } } = await supabase.auth.getSession();
     if (session?.user) {
       currentUser = session.user;
@@ -620,7 +618,7 @@
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await supabase.auth.signOut();
-      showAuth();
+      checkAuthState(); // refresh UI
     });
 
     document.getElementById('update-profile-btn').addEventListener('click', async () => {
@@ -634,11 +632,6 @@
 
     document.getElementById('post-dreem-btn').addEventListener('click', openDreemUpload);
     document.getElementById('send-btn').addEventListener('click', sendMessage);
-  }
-
-  function showAuth() {
-    authContainer.style.display = 'flex';
-    appContainer.style.display = 'none';
   }
 
   async function loadProfile() {
