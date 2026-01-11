@@ -3,1723 +3,386 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PriBrows</title>
-<!-- Firebase SDKs -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, query, orderBy, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-storage.js";
+<title>PriChat</title>
 
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_ID",
-  appId: "YOUR_APP_ID"
-};
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.40.0/dist/umd/supabase.min.js"></script>
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-
-let currentUser = null;
-</script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
 <style>
-/* Base Styles & Dark Theme */
-body { margin:0; font-family:'Segoe UI',sans-serif; background:#0d0d0d; color:#eee; }
-header { background:linear-gradient(90deg,#4b6cb7,#182848); padding:15px; display:flex; align-items:center; color:#fff; }
-header img { height:40px; margin-right:10px; }
-#container { display:flex; height:calc(100vh - 70px); }
-#sidebar { width:250px; background:#1a1a1a; display:flex; flex-direction:column; padding:10px; }
-#sidebar button { margin:5px 0; border-radius:6px; background:#333; color:#fff; border:none; cursor:pointer; transition:0.2s; }
-#sidebar button:hover { background:#4b6cb7; }
-#main { flex:1; display:flex; flex-direction:column; }
-#homeDiv, #chatArea, #friendsDiv, #settingsDiv { display:none; flex:1; overflow:auto; padding:10px; }
-#homeDiv { display:block; text-align:center; font-size:1.2em; }
-button { background:#4b6cb7; color:#fff; border:none; padding:8px 16px; margin:5px; border-radius:6px; cursor:pointer; transition:0.2s; }
-button:hover { background:#182848; }
-input { padding:8px; border-radius:6px; border:none; margin:5px 0; width:80%; }
-#introModal { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);color:#fff;display:none;flex-direction:column;justify-content:center;align-items:center;z-index:999; }
-#introModal button { margin-top:15px; padding:8px 16px; border-radius:6px; background:#4b6cb7; border:none; cursor:pointer; }
+  /* Reset & Global */
+  * {margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+  body, html {width:100%;height:100%;overflow:hidden;background:#121212;color:white;}
+  button,input {font-family:inherit;}
+  
+  /* Login / Signup UI */
+  #auth-container {display:flex;justify-content:center;align-items:center;height:100vh;background:#1e1e1e;}
+  #auth-box {background:#2a2a2a;padding:40px;border-radius:12px;width:350px;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
+  #auth-box h1 {text-align:center;margin-bottom:20px;color:#fff;}
+  #auth-box input {width:100%;padding:10px;margin:8px 0;border-radius:6px;border:none;background:#3a3a3a;color:white;}
+  #auth-box button {width:100%;padding:12px;margin-top:12px;border:none;border-radius:6px;background:#ff3b30;color:white;font-weight:bold;cursor:pointer;transition:0.2s;}
+  #auth-box button:hover {background:#ff574f;}
+  #auth-switch {text-align:center;margin-top:10px;color:#aaa;cursor:pointer;}
+  #auth-switch:hover {color:white;}
 </style>
 </head>
 <body>
-<header>
-<img src="https://i.imgur.com/3R7b8uG.png" alt="PriBrows Logo">PriBrows
-</header>
 
-<div id="container">
-<div id="sidebar">
-<button onclick="showSection('home')">Home</button>
-<button onclick="showSection('chats')">Chats</button>
-<button onclick="showSection('friends')">Friends</button>
-<button onclick="showSection('settings')">Settings</button>
-</div>
-
-<div id="main">
-<div id="homeDiv">
-<h2>Welcome to PriBrows</h2>
-<p>Local time: <span id="localTime"></span></p>
-<p>Weather: <span id="localWeather"></span></p>
-<p>Top headlines from Al Jazeera:</p>
-<ul id="newsList"></ul>
-<button id="toggleSearchBtn">Search Web</button>
-<div id="searchDiv" style="display:none;">
-<input id="searchInput" placeholder="Search the web">
-<button onclick="performSearch()">Go</button>
-<iframe id="searchResults" style="width:100%;height:400px;margin-top:10px;"></iframe>
-</div>
-</div>
-
-<div id="chatArea"></div>
-<div id="friendsDiv"></div>
-<div id="settingsDiv"></div>
-</div>
-</div>
-
-<div id="introModal">
-<h2>Welcome to PriBrows!</h2>
-<p>Here's a quick guide:</p>
-<ul>
-<li>Check your UID in Settings to share with friends.</li>
-<li>Add friends using their UID and accept friend requests.</li>
-<li>Use the sidebar to navigate Home, Chats, Friends, Settings.</li>
-<li>Use the search bar to browse the web.</li>
-<li>Enjoy the chat with bubbles, reactions, and group chats!</li>
-</ul>
-<button id="closeIntroBtn">Got it!</button>
-</div>
-
-<script type="module">
-// Local time
-function updateTime(){
-  const now = new Date();
-  let hours = now.getHours();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12 || 12;
-  const mins = now.getMinutes().toString().padStart(2,'0');
-  document.getElementById('localTime').textContent = `${hours}:${mins} ${ampm}`;
-}
-setInterval(updateTime,1000); updateTime();
-
-// Toggle search
-document.getElementById('toggleSearchBtn').onclick = ()=>{
-  const s = document.getElementById('searchDiv');
-  s.style.display = s.style.display==='none'?'block':'none';
-};
-function performSearch(){
-  const q = document.getElementById('searchInput').value;
-  document.getElementById('searchResults').src=`https://www.bing.com/search?q=${encodeURIComponent(q)}`;
-}
-
-// Sidebar navigation
-function showSection(section){
-  document.getElementById('homeDiv').style.display = section==='home'?'block':'none';
-  document.getElementById('chatArea').style.display = section==='chats'?'flex':'none';
-  document.getElementById('friendsDiv').style.display = section==='friends'?'block':'none';
-  document.getElementById('settingsDiv').style.display = section==='settings'?'block':'none';
-}
-
-// Introduction modal
-const introModal = document.getElementById('introModal');
-const closeIntroBtn = document.getElementById('closeIntroBtn');
-onAuthStateChanged(auth,user=>{
-  if(user){
-    currentUser=user;
-    const userRef = doc(db,'users',user.uid);
-    getDoc(userRef).then(snap=>{
-      if(!snap.exists()){
-        setDoc(userRef,{displayName:user.email, friends:[], friendRequests:[], createdAt:serverTimestamp(), introShown:false});
-      } else if(!snap.data().introShown){
-        introModal.style.display='flex';
-        updateDoc(userRef,{introShown:true});
-      }
-    });
-  }
-});
-closeIntroBtn.onclick = ()=>{ introModal.style.display='none'; }
-</script>
-<!-- Chat & Portal Layout -->
-<div id="chatArea" style="display:flex; flex:1;">
-  <!-- User/Chat list (Sidebar) -->
-  <div id="userList"></div>
-
-  <!-- Chat Window -->
-  <div id="chatWindow" style="flex:1; display:flex; flex-direction:column; background:#121212; padding:10px;">
-    <div id="chatHeader" style="padding:10px; border-bottom:1px solid #333; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
-      Select a chat
-    </div>
-    <div id="messages" style="flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column;"></div>
-    <div id="messageInputContainer" style="display:flex; border-top:1px solid #333; padding:5px;">
-      <input id="messageInput" placeholder="Type a message" style="flex:1; padding:8px; border-radius:20px; border:none; margin-right:5px; background:#2f3136; color:#fff;">
-      <button id="sendBtn" style="border:none; background:#5865f2; color:#fff; border-radius:20px; cursor:pointer; padding:8px 16px;">Send</button>
-    </div>
+<div id="auth-container">
+  <div id="auth-box">
+    <h1>PriChat</h1>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button id="login-btn">Login</button>
+    <button id="signup-btn">Sign Up</button>
+    <div id="auth-switch">Don't have an account? Sign Up</div>
   </div>
 </div>
 
-<!-- Friends Panel -->
-<div id="friendsDiv" style="display:none; background:#1e1e1e; border-radius:10px; padding:15px; max-width:900px; margin:20px auto;">
-<h3>Friends</h3>
-<p>Your UID: <span id="myUID"></span></p>
-<label>Add Friend (enter UID):</label>
-<input id="friendUidInput" placeholder="Friend UID">
-<button id="sendFriendRequestBtn">Send Request</button>
-
-<h4>Pending Friend Requests</h4>
-<ul id="pendingRequestsList"></ul>
-</div>
-
-<!-- Settings Panel Skeleton -->
-<div id="settingsDiv" style="display:none; background:#1e1e1e; border-radius:10px; padding:15px; max-width:900px; margin:20px auto;">
-<h3>Settings</h3>
-<label>Change Display Name:</label>
-<input id="displayNameInput" placeholder="New Name">
-<button id="changeNameBtn">Update</button><br>
-
-<label>Theme:</label>
-<button id="darkThemeBtn">Dark</button>
-<button id="lightThemeBtn">Light</button>
-</div>
-
-<script type="module">
-// Display current UID
-document.getElementById('myUID').textContent = currentUser ? currentUser.uid : 'Not logged in';
-
-// Theme switching
-function setTheme(bg,text){ document.body.style.background=bg; document.body.style.color=text; }
-document.getElementById('darkThemeBtn').onclick = ()=>setTheme('#121212','#eee');
-document.getElementById('lightThemeBtn').onclick = ()=>setTheme('#f4f4f4','#000');
-
-// Change display name
-document.getElementById('changeNameBtn').onclick = async ()=>{
-  const name = document.getElementById('displayNameInput').value.trim();
-  if(!name) return alert('Enter a name');
-  await updateDoc(doc(db,'users',currentUser.uid),{displayName:name});
-  alert('Display name updated!');
-}
-
-// Send friend request
-document.getElementById('sendFriendRequestBtn').onclick = async ()=>{
-  const targetUID = document.getElementById('friendUidInput').value.trim();
-  if(!targetUID) return alert('Enter UID');
-  const targetRef = doc(db,'users',targetUID);
-  await updateDoc(targetRef,{ friendRequests: arrayUnion({from:currentUser.uid, timestamp:serverTimestamp()}) });
-  alert('Friend request sent!');
-}
-
-// Listen for pending requests
-const pendingRef = doc(db,'users',currentUser.uid);
-onSnapshot(pendingRef, docSnap=>{
-  const data = docSnap.data();
-  const pendingList = document.getElementById('pendingRequestsList');
-  pendingList.innerHTML = '';
-  if(data.friendRequests){
-    data.friendRequests.forEach(req=>{
-      const li = document.createElement('li');
-      li.textContent = `From: ${req.from}`;
-      const acceptBtn = document.createElement('button'); acceptBtn.textContent='Accept';
-      const rejectBtn = document.createElement('button'); rejectBtn.textContent='Reject';
-      acceptBtn.onclick = async ()=>{
-        await updateDoc(doc(db,'users',currentUser.uid),{
-          friends: arrayUnion(req.from),
-          friendRequests: arrayRemove(req)
-        });
-        await updateDoc(doc(db,'users',req.from),{
-          friends: arrayUnion(currentUser.uid)
-        });
-      };
-      rejectBtn.onclick = async ()=>{
-        await updateDoc(doc(db,'users',currentUser.uid),{
-          friendRequests: arrayRemove(req)
-        });
-      };
-      li.appendChild(acceptBtn); li.appendChild(rejectBtn);
-      pendingList.appendChild(li);
-    });
-  }
-});
-</script>
-<!-- PART 3: Advanced Chat Engine -->
-<script type="module">
-// ========== Helpers ==========
-function el(tag, attrs={}, ...children){
-  const e = document.createElement(tag);
-  for(const k in attrs){
-    if(k === 'class') e.className = attrs[k];
-    else if(k.startsWith('on') && typeof attrs[k] === 'function') e.addEventListener(k.slice(2), attrs[k]);
-    else e.setAttribute(k, attrs[k]);
-  }
-  for(const c of children) {
-    if(typeof c === 'string') e.appendChild(document.createTextNode(c));
-    else if(c) e.appendChild(c);
-  }
-  return e;
-}
-function timeFromTs(ts){
-  try{
-    const d = ts && ts.seconds ? new Date(ts.seconds*1000) : new Date();
-    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  }catch(e){ return ''; }
-}
-
-// ========== UI refs ==========
-const userListEl = document.getElementById('userList');     // left column for chats/users
-const chatHeaderEl = document.getElementById('chatHeader');
-const messagesEl = document.getElementById('messages');
-const messageInputEl = document.getElementById('messageInput');
-const sendBtnEl = document.getElementById('sendBtn');
-const myUIDSpan = document.getElementById('myUID');
-
-// ensure myUID updates when user logs in
-if (typeof currentUser !== 'undefined' && currentUser) myUIDSpan.textContent = currentUser.uid;
-onAuthStateChanged(auth, u => { if(u) myUIDSpan.textContent = u.uid; });
-
-// ========== Chat discovery & creation ==========
-async function createDMWith(uid){
-  if(!currentUser) return alert('Log in first');
-  if(uid === currentUser.uid) return alert("You can't DM yourself.");
-  // ensure they are friends (simple check)
-  const meRef = doc(db, 'users', currentUser.uid);
-  const meSnap = await getDoc(meRef);
-  const friends = meSnap.exists() ? (meSnap.data().friends || []) : [];
-  if(!friends.includes(uid)) return alert('You must be friends with this user to create a DM.');
-
-  // find existing DM between these two
-  const chatsQ = query(collection(db,'chats'), orderBy('createdAt','desc'));
-  const snap = await getDocs(chatsQ);
-  for(const d of snap.docs){
-    const c = d.data();
-    if(c.type === 'dm' && Array.isArray(c.members) && c.members.includes(currentUser.uid) && c.members.includes(uid)){
-      openChat(d.id);
-      return;
-    }
-  }
-  // create new DM
-  const newChatRef = await addDoc(collection(db,'chats'), {
-    title: 'Direct Message',
-    type: 'dm',
-    members: [currentUser.uid, uid],
-    admins: [currentUser.uid],
-    createdBy: currentUser.uid,
-    createdAt: serverTimestamp(),
-    e2ee: false
-  });
-  openChat(newChatRef.id);
-}
-
-// create group chat
-async function createGroup(title, memberUids = []){
-  if(!currentUser) return;
-  const members = Array.from(new Set([currentUser.uid, ...memberUids]));
-  const newChatRef = await addDoc(collection(db,'chats'), {
-    title: title || 'New Group',
-    type: 'group',
-    members,
-    admins: [currentUser.uid],
-    createdBy: currentUser.uid,
-    createdAt: serverTimestamp(),
-    e2ee: false
-  });
-  openChat(newChatRef.id);
-}
-
-// ========== Load chat list (show pinned + recent) ==========
-async function refreshChatList(){
-  userListEl.innerHTML = '';
-  // pinned chats first
-  if(!currentUser) return;
-  const meRef = doc(db,'users',currentUser.uid);
-  const meSnap = await getDoc(meRef);
-  const pinned = meSnap.exists() ? (meSnap.data().pinnedChats || []) : [];
-
-  // render pinned
-  for(const chatId of pinned){
-    const chatDoc = await getDoc(doc(db,'chats',chatId));
-    if(chatDoc.exists()){
-      const c = chatDoc.data();
-      const node = renderChatListItem(chatDoc.id, c, true);
-      userListEl.appendChild(node);
-    }
-  }
-
-  // show recent chats (limit 30)
-  const q = query(collection(db,'chats'), orderBy('createdAt','desc'));
-  onSnapshot(q, snapshot => {
-    // snapshot contains all chats — filter shown
-    // clear existing non-pinned
-    // first remove non-pinned existing items
-    Array.from(userListEl.querySelectorAll('.chat-item:not(.pinned)')).forEach(n=>n.remove());
-    snapshot.forEach(docSnap => {
-      const c = docSnap.data();
-      // only show chats where currentUser is member or public
-      if(c.type === 'public' || (Array.isArray(c.members) && c.members.includes(currentUser.uid))){
-        const node = renderChatListItem(docSnap.id, c, false);
-        userListEl.appendChild(node);
-      }
-    });
-  });
-}
-
-function renderChatListItem(chatId, c, isPinned){
-  const avatar = el('div', { class: 'user-avatar' }, (c.photoUrl? el('img',{src:c.photoUrl, style:'width:36px;height:36px;border-radius:50%;'}): (c.title? document.createTextNode(c.title.slice(0,2).toUpperCase()) : 'PB')) );
-  const title = el('div', { class: 'user-title' }, c.title || (c.type === 'dm' ? 'Direct Message' : 'Group'));
-  const meta = el('div', { class: 'user-meta' }, c.members ? `${c.members.length} members` : '');
-  const item = el('div', { class: 'user-item chat-item' + (isPinned? ' pinned':'') , onclick: ()=>openChat(chatId) }, avatar, el('div',{}, title, meta));
-  item.style.display = 'flex'; item.style.alignItems='center'; item.style.gap='10px';
-  item.style.padding='8px'; item.style.borderRadius='8px'; item.style.marginBottom='6px'; item.style.cursor='pointer';
-  item.addEventListener('mouseenter', ()=> item.style.background = '#2a2a2a' );
-  item.addEventListener('mouseleave', ()=> item.style.background = '' );
-  return item;
-}
-
-// ========== Open & render chat ==========
-let unsubMessages = null;
-async function openChat(chatId){
-  if(unsubMessages) unsubMessages(); // detach old listener
-  currentChatId = chatId;
-  // load chat meta
-  const chatDocRef = doc(db,'chats',chatId);
-  const chatSnap = await getDoc(chatDocRef);
-  if(!chatSnap.exists()){
-    alert('Chat not found');
-    return;
-  }
-  const chat = chatSnap.data();
-  chatHeaderEl.textContent = chat.title + (chat.type==='group' ? ` (${chat.members.length})` : '');
-  messagesEl.innerHTML = '';
-
-  // load messages live
-  const messagesRef = collection(db,'chats',chatId,'messages');
-  const q = query(messagesRef, orderBy('createdAt','asc'));
-  unsubMessages = onSnapshot(q, snapshot => {
-    messagesEl.innerHTML = '';
-    snapshot.forEach(docSnap => {
-      const m = docSnap.data();
-      const msgNode = renderMessageNode(docSnap.id, m);
-      messagesEl.appendChild(msgNode);
-    });
-    // auto scroll to bottom
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  });
-}
-
-// message node rendering (bubble + avatar)
-function renderMessageNode(messageId, m){
-  const isSelf = m.senderId === currentUser.uid;
-  const bubble = el('div', { class: 'message-bubble ' + (isSelf? 'self':'other') });
-  bubble.style.display='flex'; bubble.style.alignItems='flex-end'; bubble.style.gap='8px';
-  // avatar for others
-  if(!isSelf){
-    const avatarImg = el('img', { src: m.avatarUrl || 'https://i.imgur.com/3R7b8uG.png', class: 'message-avatar', style:'width:32px;height:32px;border-radius:50%;' });
-    bubble.appendChild(avatarImg);
-  } else {
-    bubble.style.alignSelf = 'flex-end';
-  }
-  const contentWrap = el('div', { style:'display:flex;flex-direction:column;max-width:75%;' });
-  const header = el('div', { style:'font-weight:600;font-size:13px;color:#cfcfcf' }, m.displayName || m.senderId);
-  const text = el('div', { style:'margin-top:4px;white-space:pre-wrap;' }, m.text || (m.attachmentUrl ? '[Attachment]' : ''));
-  const ts = el('div', { class:'timestamp', style:'font-size:11px;color:#9aa0a6;margin-top:6px;text-align:right;' }, timeFromTs(m.createdAt));
-  contentWrap.appendChild(header);
-  contentWrap.appendChild(text);
-  contentWrap.appendChild(ts);
-  bubble.appendChild(contentWrap);
-
-  // reaction area
-  const reactBtn = el('button', { class:'react-btn', onclick: (ev) => { ev.stopPropagation(); showReactionPicker(messageId, m); } }, '😊');
-  reactBtn.style.marginLeft='8px';
-  bubble.appendChild(reactBtn);
-
-  // message actions on hover (edit/delete)
-  bubble.addEventListener('mouseenter', ()=> {
-    // simple hover actions
-    bubble.style.boxShadow = '0 6px 18px rgba(0,0,0,0.3)';
-  });
-  bubble.addEventListener('mouseleave', ()=> {
-    bubble.style.boxShadow = '';
-  });
-
-  return bubble;
-}
-
-// ========== Send message (with optional attachment) ==========
-sendBtnEl.addEventListener('click', async ()=>{
-  const text = messageInputEl.value.trim();
-  if(!currentChatId) return alert('Open a chat first');
-  if(!text) return;
-  // ensure current user allowed to send (member)
-  const chatSnap = await getDoc(doc(db,'chats',currentChatId));
-  const chatData = chatSnap.data();
-  if(chatData.type !== 'public' && !chatData.members.includes(currentUser.uid)) return alert('You are not a member of this chat.');
-  // send
-  await addDoc(collection(db,'chats',currentChatId,'messages'), {
-    senderId: currentUser.uid,
-    displayName: currentUser.displayName || currentUser.email.split('@')[0],
-    text,
-    avatarUrl: '', // optional, could store user avatar in profile
-    createdAt: serverTimestamp(),
-    reactions: {}
-  });
-  messageInputEl.value = '';
-});
-
-// allow Enter key to send
-messageInputEl.addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendBtnEl.click(); }
-});
-
-// ========== Reactions (simple) ==========
-function showReactionPicker(messageId, messageData){
-  const emojis = ['👍','❤️','😂','😮','😢','🔥'];
-  const picker = el('div', { style:'position:fixed;z-index:9999;padding:6px;background:#222;border-radius:8px;display:flex;gap:6px;' });
-  emojis.forEach(em => {
-    const b = el('button', { onclick: async (ev)=>{ ev.stopPropagation(); await toggleReaction(currentChatId, messageId, em); picker.remove(); } }, em);
-    picker.appendChild(b);
-  });
-  document.body.appendChild(picker);
-  // position near mouse — fallback center
-  document.addEventListener('click', ()=>picker.remove(), { once: true });
-}
-
-async function toggleReaction(chatId, messageId, emoji){
-  const msgRef = doc(db, 'chats', chatId, 'messages', messageId);
-  // simple transaction-like update using get/set pattern
-  const msgSnap = await getDoc(msgRef);
-  if(!msgSnap.exists()) return;
-  const data = msgSnap.data();
-  const reactions = data.reactions || {}; // { emoji: { uid:true } }
-  if(!reactions[emoji]) reactions[emoji] = {};
-  if(reactions[emoji][currentUser.uid]) delete reactions[emoji][currentUser.uid];
-  else reactions[emoji][currentUser.uid] = true;
-  await updateDoc(msgRef, { reactions });
-}
-
-// ========== Typing indicator (basic visual) ==========
-let typingTimer = null;
-messageInputEl.addEventListener('input', ()=> {
-  showLocalTypingIndicator(true);
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(()=> showLocalTypingIndicator(false), 1500);
-});
-function showLocalTypingIndicator(isTyping){
-  // For demo, add a small notice in chat header
-  const indicatorId = 'typingIndicator';
-  if(isTyping){
-    if(!document.getElementById(indicatorId)){
-      const el = document.createElement('span'); el.id = indicatorId; el.textContent = ' • typing...'; el.style.color = '#9aa0a6';
-      chatHeaderEl.appendChild(el);
-    }
-  } else {
-    const el = document.getElementById(indicatorId); if(el) el.remove();
-  }
-}
-
-// ========== Attachments (file input) ==========
-const fileInput = el('input', { type: 'file', style:'display:none' });
-document.body.appendChild(fileInput);
-fileInput.addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  if(!f || !currentChatId) return;
-  // upload
-  const path = `attachments/${currentChatId}/${Date.now()}_${f.name}`;
-  const r = storageRef(storage, path);
-  await uploadBytes(r, f);
-  const url = await getDownloadURL(r);
-  await addDoc(collection(db,'chats',currentChatId,'messages'), {
-    senderId: currentUser.uid,
-    displayName: currentUser.displayName || currentUser.email.split('@')[0],
-    text: '[Attachment]',
-    attachmentUrl: url,
-    createdAt: serverTimestamp(),
-    reactions: {}
-  });
-});
-function triggerFilePick(){ fileInput.click(); }
-
-// ========== Add user by UID (to group) ==========
-async function addUserToCurrentChatByUID(uid){
-  if(!currentChatId) return alert('Open a chat first');
-  const chatRef = doc(db,'chats',currentChatId);
-  const chatSnap = await getDoc(chatRef);
-  if(!chatSnap.exists()) return alert('Chat not found');
-  const chat = chatSnap.data();
-  if(!chat.admins || !chat.admins.includes(currentUser.uid)) return alert('Only admins can add members');
-  // ensure they are friends before adding (requirement)
-  const targetUserSnap = await getDoc(doc(db,'users',uid));
-  if(!targetUserSnap.exists()) return alert('User not found');
-  const mySnap = await getDoc(doc(db,'users',currentUser.uid));
-  const friends = mySnap.exists() ? (mySnap.data().friends || []) : [];
-  if(!friends.includes(uid)) return alert('You may only add friends to a group');
-  await updateDoc(chatRef, { members: arrayUnion(uid) });
-  alert('User added to chat');
-}
-
-// Expose some functions to window for quick console usage:
-window.createDMWith = createDMWith;
-window.createGroup = createGroup;
-window.addUserToCurrentChatByUID = addUserToCurrentChatByUID;
-window.triggerFilePick = triggerFilePick;
-
-// On auth ready -> refresh chat list
-onAuthStateChanged(auth, user => { if(user) refreshChatList(); });
-
-</script>
-<!-- ===== Part 4 — Section 1: UI Overhaul, Avatars, Reactions, Whiteboard placeholder ===== -->
-<style>
-/* ===== Visual overhaul: Discord/Instagram inspired ===== */
-:root{
-  --bg-1: #0b0f14;
-  --bg-2: #0f1720;
-  --card: #0f172a;
-  --muted: #91a0b2;
-  --accent: #5865f2;   /* discord-like */
-  --accent-2: #06b6d4;
-  --success: #16a34a;
-  --danger: #ef4444;
-  --glass: rgba(255,255,255,0.04);
-  --radius: 12px;
-}
-
-*{box-sizing:border-box}
-body{margin:0; font-family:Inter, "Segoe UI", Roboto, system-ui, -apple-system; background:linear-gradient(180deg,var(--bg-1),var(--bg-2)); color:#e6eef8; -webkit-font-smoothing:antialiased;}
-header{height:68px; display:flex; align-items:center; gap:14px; padding:0 20px; background:linear-gradient(90deg,var(--accent),#3b82f6); box-shadow:0 6px 20px rgba(2,6,23,0.6);}
-.header-logo{height:44px; width:44px; display:flex;align-items:center;justify-content:center;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#06b6d4);font-weight:700;color:#021;}
-.header-title{font-size:18px;font-weight:700;letter-spacing:0.3px}
-
-#container{display:flex;height:calc(100vh - 68px);}
-
-/* Sidebar */
-#sidebar{width:280px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-right:1px solid rgba(255,255,255,0.03);padding:18px;display:flex;flex-direction:column;gap:12px}
-.brand-row{display:flex;align-items:center;gap:12px}
-.brand-row .title{font-size:16px;font-weight:700}
-.nav-btn{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:none;background:transparent;color:var(--muted);cursor:pointer}
-.nav-btn:hover{background:rgba(255,255,255,0.02);color:#fff}
-.section-label{font-size:12px;color:var(--muted);margin-top:10px}
-
-/* user/chat list */
-#userList{flex:1; overflow:auto;padding-right:6px}
-.chat-item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer}
-.chat-item:hover{background:rgba(255,255,255,0.02)}
-.chat-avatar{width:44px;height:44px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#021;font-weight:700}
-.chat-meta{display:flex;flex-direction:column}
-.chat-title{font-weight:700}
-.chat-sub{font-size:12px;color:var(--muted)}
-
-/* main area */
-#main{flex:1;display:flex;flex-direction:column;}
-
-/* Chat area layout */
-#chatArea{display:flex;flex:1;min-height:0}
-#chatWindow{flex:1;display:flex;flex-direction:column;min-width:0} /* min-width fix for flexbox scrolls */
-#chatHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(6,9,14,0.2), transparent)}
-.chat-title-left{display:flex;align-items:center;gap:12px}
-.chat-header-avatar{width:44px;height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#06b6d4);font-weight:700}
-.chat-header-name{font-weight:700}
-.chat-header-meta{font-size:12px;color:var(--muted)}
-
-/* messages area */
-#messages{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,transparent, rgba(0,0,0,0.04))}
-
-/* message bubble */
-.message-row{display:flex;gap:12px;align-items:flex-end;max-width:100%}
-.message-row.self{justify-content:flex-end}
-.message-avatar{width:36px;height:36px;border-radius:8px;flex-shrink:0}
-.message-bubble{background:#111419;padding:10px 12px;border-radius:14px;max-width:68%;color:#e6eef8;position:relative;box-shadow:0 6px 16px rgba(2,6,23,0.6);word-break:break-word}
-.message-bubble.self{background:linear-gradient(90deg,var(--accent),#3b82f6);color:#fff;border-bottom-right-radius:6px}
-.message-bubble .meta{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:11px;color:var(--muted)}
-
-/* small controls on hover */
-.message-actions{opacity:0;transition:opacity .12s;display:flex;gap:6px}
-.message-row:hover .message-actions{opacity:1}
-
-/* input area */
-#messageInputContainer{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,0.03)}
-#composer{flex:1;display:flex;gap:8px;align-items:center;background:var(--glass);padding:8px;border-radius:999px}
-#messageInput{flex:1;background:transparent;border:none;color:inherit;padding:8px;outline:none}
-.icon-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;padding:8px;border-radius:8px}
-.icon-btn:hover{background:rgba(255,255,255,0.02);color:#fff}
-
-/* reactions badge */
-.reactions-row{display:flex;gap:6px;margin-top:6px}
-.reaction-pill{background:rgba(255,255,255,0.03);padding:4px 8px;border-radius:999px;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,0.02)}
-
-/* file input hidden but attached to UI */
-#fileInput{display:none}
-
-/* friends and settings panels improvements */
-#friendsDiv, #settingsDiv { max-width:900px; margin:18px auto; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent); border-radius:12px; padding:16px; border:1px solid rgba(255,255,255,0.03) }
-
-/* whiteboard placeholder */
-#whiteboardContainer{margin-top:12px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
-#whiteboard{width:100%;height:360px;background:#fff;display:block;}
-
-/* small responsive tweaks */
-@media (max-width:900px){
-  #sidebar{display:none}
-  #chatArea{flex-direction:column}
-  .chat-avatar,.chat-header-avatar{display:none}
-}
-</style>
-
-<script type="module">
-// ===== UI enhancement helpers =====
-function createAvatarFromName(name){
-  if(!name) return 'PB';
-  return name.split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
-}
-
-// Ensure certain DOM elements exist or create them
-(function ensureElements(){
-  // ensure userList exists
-  if(!document.getElementById('userList')){
-    const ul = document.createElement('div'); ul.id='userList'; document.getElementById('sidebar').appendChild(ul);
-  }
-  // ensure chatArea exists
-  if(!document.getElementById('chatArea')){
-    const ca = document.createElement('div'); ca.id='chatArea'; document.getElementById('main').appendChild(ca);
-  }
-  // ensure whiteboard container in portal (settings area will show it)
-  if(!document.getElementById('whiteboardContainer')){
-    const wbWrap = document.createElement('div'); wbWrap.id='whiteboardContainer';
-    const canvas = document.createElement('canvas'); canvas.id='whiteboard'; wbWrap.appendChild(canvas);
-    // place into settingsDiv for now
-    const settings = document.getElementById('settingsDiv');
-    if(settings) settings.appendChild(wbWrap);
-  }
-})();
-
-// ===== Render functions using nicer UI =====
-function renderChatListItemFancy(chatId, c, isPinned=false){
-  const avatarText = c.title ? createAvatarFromName(c.title) : 'PB';
-  const avatar = document.createElement('div'); avatar.className='chat-avatar'; avatar.textContent = avatarText;
-  const metaWrap = document.createElement('div'); metaWrap.className='chat-meta';
-  const title = document.createElement('div'); title.className='chat-title'; title.textContent = c.title || (c.type === 'dm' ? 'Direct Message' : 'Group Chat');
-  const sub = document.createElement('div'); sub.className='chat-sub'; sub.textContent = c.type === 'group' ? `${c.members?.length || 0} members` : 'Direct Message';
-  metaWrap.appendChild(title); metaWrap.appendChild(sub);
-  const wrapper = document.createElement('div'); wrapper.className='chat-item'; wrapper.appendChild(avatar); wrapper.appendChild(metaWrap);
-  wrapper.onclick = ()=> openChat(chatId);
-  return wrapper;
-}
-
-// override earlier renderChatListItem registrations if needed:
-window.renderChatListItem = renderChatListItemFancy;
-
-// ===== Update message renderer to use new classes (override) =====
-function renderMessageNodePolished(messageId, m){
-  const isSelf = m.senderId === currentUser.uid;
-  const row = document.createElement('div'); row.className = 'message-row ' + (isSelf ? 'self' : ''); row.style.marginBottom='8px';
-  if(!isSelf){
-    const avatar = document.createElement('div'); avatar.className='message-avatar'; avatar.style.background='linear-gradient(135deg,#7c3aed,#06b6d4)'; avatar.textContent = createAvatarFromName(m.displayName || m.senderId);
-    row.appendChild(avatar);
-  } else {
-    // spacer for alignment
-    const spacer = document.createElement('div'); spacer.style.width = '48px'; row.appendChild(spacer);
-  }
-  const bubble = document.createElement('div'); bubble.className = 'message-bubble ' + (isSelf ? 'self' : '');
-  const header = document.createElement('div'); header.style.fontWeight='600'; header.style.marginBottom='6px'; header.textContent = m.displayName || (m.senderId);
-  const text = document.createElement('div'); text.textContent = m.text || (m.attachmentUrl ? '[Attachment]' : '');
-  const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = `<span style="color:var(--muted);font-size:12px">${timeFromTs(m.createdAt)}</span>`;
-  // reactions row
-  const reactionsRow = document.createElement('div'); reactionsRow.className='reactions-row';
-  if(m.reactions){
-    for(const emoji in m.reactions){
-      const count = Object.keys(m.reactions[emoji] || {}).length;
-      const pill = document.createElement('div'); pill.className='reaction-pill'; pill.textContent = `${emoji} ${count>1?count:''}`;
-      pill.onclick = async (ev) => { ev.stopPropagation(); await toggleReaction(currentChatId, messageId, emoji); };
-      reactionsRow.appendChild(pill);
-    }
-  }
-
-  bubble.appendChild(header);
-  bubble.appendChild(text);
-  bubble.appendChild(reactionsRow);
-  bubble.appendChild(meta);
-
-  // attach actions (edit/delete) area
-  const actions = document.createElement('div'); actions.className='message-actions';
-  const editBtn = document.createElement('button'); editBtn.className='icon-btn'; editBtn.textContent='Edit';
-  const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.textContent='Delete';
-  editBtn.onclick = async (ev) => { ev.stopPropagation(); const newText = prompt('Edit message:', m.text||''); if(newText !== null){ await updateDoc(doc(db,'chats',currentChatId,'messages', messageId), { text: newText, editedAt: serverTimestamp() }); } };
-  delBtn.onclick = async (ev) => { ev.stopPropagation(); if(confirm('Delete message for everyone?')) await updateDoc(doc(db,'chats',currentChatId,'messages', messageId), { deleted: true, text: '[deleted]' }); };
-  actions.appendChild(editBtn); actions.appendChild(delBtn);
-  bubble.appendChild(actions);
-
-  row.appendChild(bubble);
-  return row;
-}
-
-// wire override used by message snapshot rendering
-window.renderMessageNode = renderMessageNodePolished;
-
-// ===== Whiteboard basic initialization (canvas drawing, local only — will sync later) =====
-(function initWhiteboard(){
-  const canvas = document.getElementById('whiteboard');
-  if(!canvas) return;
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  const ctx = canvas.getContext('2d');
-  let drawing=false;
-  let last = null;
-  canvas.addEventListener('pointerdown', (e)=>{ drawing=true; last = {x:e.offsetX, y:e.offsetY}; });
-  canvas.addEventListener('pointerup', ()=>{ drawing=false; last=null; });
-  canvas.addEventListener('pointermove', (e)=>{
-    if(!drawing || !last) return;
-    ctx.strokeStyle = '#111';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-    last = {x:e.offsetX, y:e.offsetY};
-  });
-})();
-</script>
-<!-- End of Part 4 — Section 1 -->
-<!-- ===== Part 4 — Section 2: Emoji picker, Attachments, Replies, Typing & Whiteboard Sync ===== -->
-<script type="module">
-// ===== Emoji Picker & Reaction UX =====
-const emojiPicker = document.createElement('div');
-emojiPicker.id = 'emojiPicker';
-emojiPicker.style.position = 'absolute';
-emojiPicker.style.display = 'none';
-emojiPicker.style.padding = '8px';
-emojiPicker.style.background = 'linear-gradient(180deg, #0f172a, #0b1220)';
-emojiPicker.style.border = '1px solid rgba(255,255,255,0.04)';
-emojiPicker.style.borderRadius = '10px';
-emojiPicker.style.boxShadow = '0 8px 30px rgba(2,6,23,0.6)';
-emojiPicker.style.zIndex = 9999;
-document.body.appendChild(emojiPicker);
-
-const EMOJIS = ['👍','❤️','😂','🔥','😮','😢','🎉','🙌','👏','🤝'];
-EMOJIS.forEach(e => {
-  const b = document.createElement('button');
-  b.textContent = e;
-  b.style.padding = '6px';
-  b.style.border = 'none';
-  b.style.borderRadius = '6px';
-  b.style.cursor = 'pointer';
-  b.style.background = 'transparent';
-  b.onclick = async (ev) => {
-    ev.stopPropagation();
-    const target = emojiPicker._target; // messageId
-    if(target && currentChatId) await toggleReaction(currentChatId, target, e);
-    hideEmojiPicker();
-  };
-  emojiPicker.appendChild(b);
-});
-
-function showEmojiPickerAt(x,y,messageId){
-  emojiPicker.style.left = (x+6) + 'px';
-  emojiPicker.style.top = (y+6) + 'px';
-  emojiPicker.style.display = 'flex';
-  emojiPicker._target = messageId;
-}
-function hideEmojiPicker(){ emojiPicker.style.display='none'; emojiPicker._target = null; }
-document.addEventListener('click', ()=> hideEmojiPicker(), { capture:true });
-
-// We exposed toggleReaction earlier; ensure click on reaction-pill opens picker too
-// (renderMessageNodePolished calls toggleReaction when clicking pill)
-
-// ===== Attachments: previews and upload =====
-const attachBtn = document.createElement('button');
-attachBtn.className = 'icon-btn';
-attachBtn.title = 'Attach file';
-attachBtn.innerHTML = '📎';
-attachBtn.onclick = () => fileInput.click();
-document.querySelector('#composer').insertBefore(attachBtn, document.querySelector('#messageInput'));
-
-// Preview area for selected files
-const attachPreviewWrap = document.createElement('div');
-attachPreviewWrap.style.display = 'flex';
-attachPreviewWrap.style.gap = '8px';
-attachPreviewWrap.style.marginTop = '8px';
-attachPreviewWrap.id = 'attachPreviewWrap';
-document.querySelector('#main').appendChild(attachPreviewWrap);
-
-fileInput.addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  attachPreviewWrap.innerHTML = '';
-  if(!f) return;
-  // preview image/audio
-  const preview = document.createElement('div'); preview.style.padding='6px'; preview.style.background='rgba(255,255,255,0.03)'; preview.style.borderRadius='8px';
-  if(f.type.startsWith('image/')){
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(f);
-    img.style.maxHeight = '80px'; img.style.borderRadius='6px';
-    preview.appendChild(img);
-  } else if(f.type.startsWith('audio/')){
-    const a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(f);
-    preview.appendChild(a);
-  } else {
-    const p = document.createElement('div'); p.textContent = f.name; preview.appendChild(p);
-  }
-  const sendAttachBtn = document.createElement('button'); sendAttachBtn.textContent='Send file';
-  sendAttachBtn.onclick = async () => {
-    if(!currentChatId) return alert('Open a chat first');
-    // upload to storage
-    const path = `attachments/${currentChatId}/${Date.now()}_${f.name}`;
-    const ref = storageRef(storage, path);
-    await uploadBytes(ref, f);
-    const url = await getDownloadURL(ref);
-    // send message with attachment url
-    await addDoc(collection(db,'chats',currentChatId,'messages'),{
-      senderId: currentUser.uid,
-      displayName: currentUser.displayName || currentUser.email.split('@')[0],
-      text: '[Attachment]',
-      attachmentUrl: url,
-      attachmentName: f.name,
-      attachmentType: f.type,
-      createdAt: serverTimestamp(),
-      reactions: {}
-    });
-    attachPreviewWrap.innerHTML = '';
-    fileInput.value = '';
-  };
-  preview.appendChild(sendAttachBtn);
-  attachPreviewWrap.appendChild(preview);
-});
-
-// ===== Reply threading =====
-let replyTo = null; // {messageId, text, sender}
-function setReplyTo(messageId, previewText){
-  replyTo = { messageId, previewText };
-  const replyBarId = 'replyBar';
-  let replyBar = document.getElementById(replyBarId);
-  if(!replyBar){
-    replyBar = document.createElement('div'); replyBar.id = replyBarId;
-    replyBar.style.background = 'rgba(255,255,255,0.03)'; replyBar.style.padding = '8px'; replyBar.style.borderRadius='8px'; replyBar.style.marginBottom='8px';
-    const inputWrap = document.querySelector('#composer');
-    inputWrap.parentNode.insertBefore(replyBar, inputWrap);
-  }
-  replyBar.innerHTML = `<strong>Replying:</strong> ${previewText} <button id="cancelReplyBtn">Cancel</button>`;
-  document.getElementById('cancelReplyBtn').onclick = () => { replyTo = null; replyBar.remove(); };
-}
-
-function clearReplyBar(){
-  const rb = document.getElementById('replyBar'); if(rb) rb.remove(); replyTo = null;
-}
-
-// Modify sending to include replyTo
-// Find earlier send handler and override
-sendBtnEl.removeEventListener?.('click', ()=>{}); // attempt to remove if duplicative
-sendBtnEl.addEventListener('click', async () => {
-  const text = messageInputEl.value.trim();
-  if(!currentChatId) return alert('Open a chat first');
-  if(!text && !fileInput.files.length) return;
-  const payload = {
-    senderId: currentUser.uid,
-    displayName: currentUser.displayName || currentUser.email.split('@')[0],
-    text: text || '[Attachment]',
-    createdAt: serverTimestamp(),
-    reactions: {}
-  };
-  if(replyTo) payload.replyTo = replyTo.messageId;
-  await addDoc(collection(db,'chats',currentChatId,'messages'), payload);
-  messageInputEl.value = '';
-  clearReplyBar();
-});
-
-// Provide UI to reply on long-press or menu: We'll add a simple global click handler
-messagesEl.addEventListener('click', (ev) => {
-  const node = ev.target.closest('.message-bubble, .message-row');
-  if(!node) return;
-  // try to find messageId stored on element
-  const msgId = node.dataset && node.dataset.msgId;
-  if(msgId){
-    // ask user if they want to reply
-    const text = node.querySelector('div')?.textContent || '[message]';
-    if(confirm('Reply to this message?')) setReplyTo(msgId, text.slice(0,80));
-  }
-});
-
-// ===== Typing & Presence using Realtime DB =====
-import { getDatabase, ref as rtdbRef2, set as rtdbSet2, onDisconnect as rtdbOnDisconnect, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
-const rdb = getDatabase();
-
-function setPresenceOnline(){
-  if(!currentUser) return;
-  const ref = rtdbRef2(rdb, `presence/${currentUser.uid}`);
-  rtdbSet2(ref, { state:'online', lastSeen: Date.now() });
-  rtdbOnDisconnect(ref).set({ state:'offline', lastSeen: Date.now() });
-}
-onAuthStateChanged(auth, user => { if(user) setPresenceOnline(); });
-
-/* per-chat typing indicator */
-let typingRef = null;
-let typingTimeoutGlobal = null;
-function startTyping(){
-  if(!currentUser || !currentChatId) return;
-  typingRef = rtdbRef2(rdb, `typing/${currentChatId}/${currentUser.uid}`);
-  rtdbSet2(typingRef, true);
-  rtdbOnDisconnect(typingRef).remove();
-  clearTimeout(typingTimeoutGlobal);
-  typingTimeoutGlobal = setTimeout(() => { stopTyping(); }, 2000);
-}
-function stopTyping(){
-  if(typingRef) rtdbSet2(typingRef, null);
-}
-messageInputEl.addEventListener('input', () => {
-  startTyping();
-});
-
-// listen for typing users
-function watchTypingForChat(chatId){
-  const path = rtdbRef2(rdb, `typing/${chatId}`);
-  rtdbOnValue(path, (snap) => {
-    const data = snap.val() || {};
-    const userIdsTyping = Object.keys(data).filter(k => data[k]);
-    // show typing indicator in header
-    const existing = document.getElementById('typingUsers');
-    if(userIdsTyping.length){
-      const txt = userIdsTyping.length === 1 ? `${userIdsTyping[0]} is typing...` : `${userIdsTyping.length} people are typing...`;
-      if(!existing){
-        const span = document.createElement('span'); span.id='typingUsers'; span.style.color='var(--muted)'; chatHeaderEl.appendChild(span);
-      }
-      document.getElementById('typingUsers').textContent = txt;
+<script>
+  // ---------------- Supabase Configuration ----------------
+  const SUPABASE_URL = "https://qndloqakppscohtqjghs.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZGxvcWFrcHBzY29odHFqZ2hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNDgwNTQsImV4cCI6MjA4MzcyNDA1NH0.2L5nJXixDIYYTpxB0rP2tOQI0A50S23rkphhCHMC6GE";
+
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---------------- UI Elements ----------------
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('login-btn');
+  const signupBtn = document.getElementById('signup-btn');
+  const authSwitch = document.getElementById('auth-switch');
+
+  let isLoginMode = true;
+
+  authSwitch.addEventListener('click', () => {
+    isLoginMode = !isLoginMode;
+    if(isLoginMode){
+      loginBtn.style.display = "block";
+      signupBtn.textContent = "Sign Up";
+      authSwitch.textContent = "Don't have an account? Sign Up";
     } else {
-      if(existing) existing.remove();
+      loginBtn.style.display = "none";
+      signupBtn.textContent = "Create Account";
+      authSwitch.textContent = "Already have an account? Login";
     }
   });
-}
 
-// ensure we call watchTypingForChat when openChat sets currentChatId
-// we can hook it inside openChat in Part 3; but in case not, override openChat to call watchTypingForChat
-const _origOpenChat = window.openChat;
-window.openChat = async function(chatId){
-  await _origOpenChat(chatId);
-  watchTypingForChat(chatId);
-};
-
-// ===== Whiteboard Sync Skeleton (Firestore strokes) =====
-/*
-  Basic approach:
-  - Each whiteboard is a subcollection: /chats/{chatId}/whiteboard/strokes
-  - Each stroke: { uid, color, width, points: [[x,y],...], createdAt }
-  - Clients append strokes locally and push to Firestore.
-  - Clients subscribe to strokes and render them.
-  - This is a simple, low-rate implementation for demo. For production a CRDT or chunking is better.
-*/
-import { collection as fsCollection, addDoc as fsAddDoc, onSnapshot as fsOnSnapshot, query as fsQuery, orderBy as fsOrderBy } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-firestore.js";
-
-let wbCanvas = document.getElementById('whiteboard');
-let wbCtx = wbCanvas ? wbCanvas.getContext('2d') : null;
-function setupWhiteboardSyncForChat(chatId){
-  if(!wbCanvas || !wbCtx) return;
-  wbCtx.clearRect(0,0,wbCanvas.width, wbCanvas.height);
-  // subscribe to strokes for this chat
-  const strokesRef = fsCollection(db, 'chats', chatId, 'whiteboard', 'strokes');
-  const q = fsQuery(strokesRef, fsOrderBy('createdAt','asc'));
-  fsOnSnapshot(q, snapshot => {
-    snapshot.docChanges().forEach(change => {
-      if(change.type === 'added'){
-        const s = change.doc.data();
-        renderStrokeOnCanvas(s);
-      }
-    });
-  });
-  // add local drawing push (extend the canvas handler created in previous part)
-  // For brevity, we only push every N points or when pointerup occurs
-  let drawing=false, points=[];
-  wbCanvas.onpointerdown = (e) => { drawing=true; points = [{x:e.offsetX, y:e.offsetY}]; };
-  wbCanvas.onpointermove = (e) => { if(!drawing) return; points.push({x:e.offsetX, y:e.offsetY}); drawLineSegment(points[points.length-2], points[points.length-1]); };
-  wbCanvas.onpointerup = async (e) => {
-    drawing=false;
-    if(points.length < 2) return;
-    // push stroke to firestore
+  // ---------------- Auth Functions ----------------
+  signupBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    if(!email || !password){ alert('Enter email & password'); return; }
     try{
-      await fsAddDoc(fsCollection(db, 'chats', chatId, 'whiteboard', 'strokes'), {
-        uid: currentUser.uid,
-        color: '#111',
-        width: 2,
-        points,
-        createdAt: serverTimestamp()
-      });
-    }catch(err){ console.error('whiteboard push failed', err); }
-    points = [];
-  };
-}
-
-function drawLineSegment(a,b){
-  if(!wbCtx) return;
-  wbCtx.strokeStyle = '#111';
-  wbCtx.lineWidth = 2;
-  wbCtx.beginPath();
-  wbCtx.moveTo(a.x, a.y);
-  wbCtx.lineTo(b.x, b.y);
-  wbCtx.stroke();
-}
-function renderStrokeOnCanvas(s){
-  const pts = s.points || [];
-  for(let i=1;i<pts.length;i++){
-    drawLineSegment(pts[i-1], pts[i]);
-  }
-}
-
-// Call setupWhiteboardSyncForChat when opening a chat that has whiteboard
-const _openChatOrig2 = window.openChat;
-window.openChat = async function(chatId){
-  await _openChatOrig2(chatId);
-  // setup whiteboard sync for this chat
-  setupWhiteboardSyncForChat(chatId);
-};
-
-// ===== Small helpers: smooth scroll, toast =====
-function scrollMessagesToBottom(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
-function toast(msg, timeout=3000){
-  const t = document.createElement('div'); t.textContent = msg;
-  t.style.position='fixed'; t.style.bottom='20px'; t.style.left='50%'; t.style.transform='translateX(-50%)';
-  t.style.background='rgba(0,0,0,0.6)'; t.style.color='#fff'; t.style.padding='10px 12px'; t.style.borderRadius='8px';
-  document.body.appendChild(t);
-  setTimeout(()=> t.remove(), timeout);
-}
-
-// ===== End of Part 4 — Section 2 =====
-</script>
-<!-- ===== Part 4 — Section 2: Emoji picker, Attachments, Replies, Typing & Whiteboard Sync ===== -->
-<script type="module">
-// ===== Emoji Picker & Reaction UX =====
-const emojiPicker = document.createElement('div');
-emojiPicker.id = 'emojiPicker';
-emojiPicker.style.position = 'absolute';
-emojiPicker.style.display = 'none';
-emojiPicker.style.padding = '8px';
-emojiPicker.style.background = 'linear-gradient(180deg, #0f172a, #0b1220)';
-emojiPicker.style.border = '1px solid rgba(255,255,255,0.04)';
-emojiPicker.style.borderRadius = '10px';
-emojiPicker.style.boxShadow = '0 8px 30px rgba(2,6,23,0.6)';
-emojiPicker.style.zIndex = 9999;
-document.body.appendChild(emojiPicker);
-
-const EMOJIS = ['👍','❤️','😂','🔥','😮','😢','🎉','🙌','👏','🤝'];
-EMOJIS.forEach(e => {
-  const b = document.createElement('button');
-  b.textContent = e;
-  b.style.padding = '6px';
-  b.style.border = 'none';
-  b.style.borderRadius = '6px';
-  b.style.cursor = 'pointer';
-  b.style.background = 'transparent';
-  b.onclick = async (ev) => {
-    ev.stopPropagation();
-    const target = emojiPicker._target; // messageId
-    if(target && currentChatId) await toggleReaction(currentChatId, target, e);
-    hideEmojiPicker();
-  };
-  emojiPicker.appendChild(b);
-});
-
-function showEmojiPickerAt(x,y,messageId){
-  emojiPicker.style.left = (x+6) + 'px';
-  emojiPicker.style.top = (y+6) + 'px';
-  emojiPicker.style.display = 'flex';
-  emojiPicker._target = messageId;
-}
-function hideEmojiPicker(){ emojiPicker.style.display='none'; emojiPicker._target = null; }
-document.addEventListener('click', ()=> hideEmojiPicker(), { capture:true });
-
-// We exposed toggleReaction earlier; ensure click on reaction-pill opens picker too
-// (renderMessageNodePolished calls toggleReaction when clicking pill)
-
-// ===== Attachments: previews and upload =====
-const attachBtn = document.createElement('button');
-attachBtn.className = 'icon-btn';
-attachBtn.title = 'Attach file';
-attachBtn.innerHTML = '📎';
-attachBtn.onclick = () => fileInput.click();
-document.querySelector('#composer').insertBefore(attachBtn, document.querySelector('#messageInput'));
-
-// Preview area for selected files
-const attachPreviewWrap = document.createElement('div');
-attachPreviewWrap.style.display = 'flex';
-attachPreviewWrap.style.gap = '8px';
-attachPreviewWrap.style.marginTop = '8px';
-attachPreviewWrap.id = 'attachPreviewWrap';
-document.querySelector('#main').appendChild(attachPreviewWrap);
-
-fileInput.addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  attachPreviewWrap.innerHTML = '';
-  if(!f) return;
-  // preview image/audio
-  const preview = document.createElement('div'); preview.style.padding='6px'; preview.style.background='rgba(255,255,255,0.03)'; preview.style.borderRadius='8px';
-  if(f.type.startsWith('image/')){
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(f);
-    img.style.maxHeight = '80px'; img.style.borderRadius='6px';
-    preview.appendChild(img);
-  } else if(f.type.startsWith('audio/')){
-    const a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(f);
-    preview.appendChild(a);
-  } else {
-    const p = document.createElement('div'); p.textContent = f.name; preview.appendChild(p);
-  }
-  const sendAttachBtn = document.createElement('button'); sendAttachBtn.textContent='Send file';
-  sendAttachBtn.onclick = async () => {
-    if(!currentChatId) return alert('Open a chat first');
-    // upload to storage
-    const path = `attachments/${currentChatId}/${Date.now()}_${f.name}`;
-    const ref = storageRef(storage, path);
-    await uploadBytes(ref, f);
-    const url = await getDownloadURL(ref);
-    // send message with attachment url
-    await addDoc(collection(db,'chats',currentChatId,'messages'),{
-      senderId: currentUser.uid,
-      displayName: currentUser.displayName || currentUser.email.split('@')[0],
-      text: '[Attachment]',
-      attachmentUrl: url,
-      attachmentName: f.name,
-      attachmentType: f.type,
-      createdAt: serverTimestamp(),
-      reactions: {}
-    });
-    attachPreviewWrap.innerHTML = '';
-    fileInput.value = '';
-  };
-  preview.appendChild(sendAttachBtn);
-  attachPreviewWrap.appendChild(preview);
-});
-
-// ===== Reply threading =====
-let replyTo = null; // {messageId, text, sender}
-function setReplyTo(messageId, previewText){
-  replyTo = { messageId, previewText };
-  const replyBarId = 'replyBar';
-  let replyBar = document.getElementById(replyBarId);
-  if(!replyBar){
-    replyBar = document.createElement('div'); replyBar.id = replyBarId;
-    replyBar.style.background = 'rgba(255,255,255,0.03)'; replyBar.style.padding = '8px'; replyBar.style.borderRadius='8px'; replyBar.style.marginBottom='8px';
-    const inputWrap = document.querySelector('#composer');
-    inputWrap.parentNode.insertBefore(replyBar, inputWrap);
-  }
-  replyBar.innerHTML = `<strong>Replying:</strong> ${previewText} <button id="cancelReplyBtn">Cancel</button>`;
-  document.getElementById('cancelReplyBtn').onclick = () => { replyTo = null; replyBar.remove(); };
-}
-
-function clearReplyBar(){
-  const rb = document.getElementById('replyBar'); if(rb) rb.remove(); replyTo = null;
-}
-
-// Modify sending to include replyTo
-// Find earlier send handler and override
-sendBtnEl.removeEventListener?.('click', ()=>{}); // attempt to remove if duplicative
-sendBtnEl.addEventListener('click', async () => {
-  const text = messageInputEl.value.trim();
-  if(!currentChatId) return alert('Open a chat first');
-  if(!text && !fileInput.files.length) return;
-  const payload = {
-    senderId: currentUser.uid,
-    displayName: currentUser.displayName || currentUser.email.split('@')[0],
-    text: text || '[Attachment]',
-    createdAt: serverTimestamp(),
-    reactions: {}
-  };
-  if(replyTo) payload.replyTo = replyTo.messageId;
-  await addDoc(collection(db,'chats',currentChatId,'messages'), payload);
-  messageInputEl.value = '';
-  clearReplyBar();
-});
-
-// Provide UI to reply on long-press or menu: We'll add a simple global click handler
-messagesEl.addEventListener('click', (ev) => {
-  const node = ev.target.closest('.message-bubble, .message-row');
-  if(!node) return;
-  // try to find messageId stored on element
-  const msgId = node.dataset && node.dataset.msgId;
-  if(msgId){
-    // ask user if they want to reply
-    const text = node.querySelector('div')?.textContent || '[message]';
-    if(confirm('Reply to this message?')) setReplyTo(msgId, text.slice(0,80));
-  }
-});
-
-// ===== Typing & Presence using Realtime DB =====
-import { getDatabase, ref as rtdbRef2, set as rtdbSet2, onDisconnect as rtdbOnDisconnect, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
-const rdb = getDatabase();
-
-function setPresenceOnline(){
-  if(!currentUser) return;
-  const ref = rtdbRef2(rdb, `presence/${currentUser.uid}`);
-  rtdbSet2(ref, { state:'online', lastSeen: Date.now() });
-  rtdbOnDisconnect(ref).set({ state:'offline', lastSeen: Date.now() });
-}
-onAuthStateChanged(auth, user => { if(user) setPresenceOnline(); });
-
-/* per-chat typing indicator */
-let typingRef = null;
-let typingTimeoutGlobal = null;
-function startTyping(){
-  if(!currentUser || !currentChatId) return;
-  typingRef = rtdbRef2(rdb, `typing/${currentChatId}/${currentUser.uid}`);
-  rtdbSet2(typingRef, true);
-  rtdbOnDisconnect(typingRef).remove();
-  clearTimeout(typingTimeoutGlobal);
-  typingTimeoutGlobal = setTimeout(() => { stopTyping(); }, 2000);
-}
-function stopTyping(){
-  if(typingRef) rtdbSet2(typingRef, null);
-}
-messageInputEl.addEventListener('input', () => {
-  startTyping();
-});
-
-// listen for typing users
-function watchTypingForChat(chatId){
-  const path = rtdbRef2(rdb, `typing/${chatId}`);
-  rtdbOnValue(path, (snap) => {
-    const data = snap.val() || {};
-    const userIdsTyping = Object.keys(data).filter(k => data[k]);
-    // show typing indicator in header
-    const existing = document.getElementById('typingUsers');
-    if(userIdsTyping.length){
-      const txt = userIdsTyping.length === 1 ? `${userIdsTyping[0]} is typing...` : `${userIdsTyping.length} people are typing...`;
-      if(!existing){
-        const span = document.createElement('span'); span.id='typingUsers'; span.style.color='var(--muted)'; chatHeaderEl.appendChild(span);
-      }
-      document.getElementById('typingUsers').textContent = txt;
-    } else {
-      if(existing) existing.remove();
-    }
-  });
-}
-
-// ensure we call watchTypingForChat when openChat sets currentChatId
-// we can hook it inside openChat in Part 3; but in case not, override openChat to call watchTypingForChat
-const _origOpenChat = window.openChat;
-window.openChat = async function(chatId){
-  await _origOpenChat(chatId);
-  watchTypingForChat(chatId);
-};
-
-// ===== Whiteboard Sync Skeleton (Firestore strokes) =====
-/*
-  Basic approach:
-  - Each whiteboard is a subcollection: /chats/{chatId}/whiteboard/strokes
-  - Each stroke: { uid, color, width, points: [[x,y],...], createdAt }
-  - Clients append strokes locally and push to Firestore.
-  - Clients subscribe to strokes and render them.
-  - This is a simple, low-rate implementation for demo. For production a CRDT or chunking is better.
-*/
-import { collection as fsCollection, addDoc as fsAddDoc, onSnapshot as fsOnSnapshot, query as fsQuery, orderBy as fsOrderBy } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-firestore.js";
-
-let wbCanvas = document.getElementById('whiteboard');
-let wbCtx = wbCanvas ? wbCanvas.getContext('2d') : null;
-function setupWhiteboardSyncForChat(chatId){
-  if(!wbCanvas || !wbCtx) return;
-  wbCtx.clearRect(0,0,wbCanvas.width, wbCanvas.height);
-  // subscribe to strokes for this chat
-  const strokesRef = fsCollection(db, 'chats', chatId, 'whiteboard', 'strokes');
-  const q = fsQuery(strokesRef, fsOrderBy('createdAt','asc'));
-  fsOnSnapshot(q, snapshot => {
-    snapshot.docChanges().forEach(change => {
-      if(change.type === 'added'){
-        const s = change.doc.data();
-        renderStrokeOnCanvas(s);
-      }
-    });
-  });
-  // add local drawing push (extend the canvas handler created in previous part)
-  // For brevity, we only push every N points or when pointerup occurs
-  let drawing=false, points=[];
-  wbCanvas.onpointerdown = (e) => { drawing=true; points = [{x:e.offsetX, y:e.offsetY}]; };
-  wbCanvas.onpointermove = (e) => { if(!drawing) return; points.push({x:e.offsetX, y:e.offsetY}); drawLineSegment(points[points.length-2], points[points.length-1]); };
-  wbCanvas.onpointerup = async (e) => {
-    drawing=false;
-    if(points.length < 2) return;
-    // push stroke to firestore
-    try{
-      await fsAddDoc(fsCollection(db, 'chats', chatId, 'whiteboard', 'strokes'), {
-        uid: currentUser.uid,
-        color: '#111',
-        width: 2,
-        points,
-        createdAt: serverTimestamp()
-      });
-    }catch(err){ console.error('whiteboard push failed', err); }
-    points = [];
-  };
-}
-
-function drawLineSegment(a,b){
-  if(!wbCtx) return;
-  wbCtx.strokeStyle = '#111';
-  wbCtx.lineWidth = 2;
-  wbCtx.beginPath();
-  wbCtx.moveTo(a.x, a.y);
-  wbCtx.lineTo(b.x, b.y);
-  wbCtx.stroke();
-}
-function renderStrokeOnCanvas(s){
-  const pts = s.points || [];
-  for(let i=1;i<pts.length;i++){
-    drawLineSegment(pts[i-1], pts[i]);
-  }
-}
-
-// Call setupWhiteboardSyncForChat when opening a chat that has whiteboard
-const _openChatOrig2 = window.openChat;
-window.openChat = async function(chatId){
-  await _openChatOrig2(chatId);
-  // setup whiteboard sync for this chat
-  setupWhiteboardSyncForChat(chatId);
-};
-
-// ===== Small helpers: smooth scroll, toast =====
-function scrollMessagesToBottom(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
-function toast(msg, timeout=3000){
-  const t = document.createElement('div'); t.textContent = msg;
-  t.style.position='fixed'; t.style.bottom='20px'; t.style.left='50%'; t.style.transform='translateX(-50%)';
-  t.style.background='rgba(0,0,0,0.6)'; t.style.color='#fff'; t.style.padding='10px 12px'; t.style.borderRadius='8px';
-  document.body.appendChild(t);
-  setTimeout(()=> t.remove(), timeout);
-}
-
-// ===== End of Part 4 — Section 2 =====
-</script>
-<!-- ===== Part 4 — Section 3: Read receipts, edit history, forwarding, admin removal, UI polish ===== -->
-<script type="module">
-// ========== Read receipts ==========
-// When a user opens a chat, mark the latest visible messages as read by them.
-// We'll add currentUser.uid to message.readBy map.
-async function markMessagesRead(chatId){
-  if(!chatId || !currentUser) return;
-  const msgsRef = collection(db, 'chats', chatId, 'messages');
-  const q = query(msgsRef, orderBy('createdAt','desc'),); // we can limit if desired
-  const snap = await getDocs(q);
-  // mark last N as read (e.g., 50)
-  const docs = snap.docs.slice(0, 50);
-  const batchPromises = [];
-  docs.forEach(d => {
-    const r = d.data().readBy || {};
-    if(!r[currentUser.uid]){
-      const ref = doc(db, 'chats', chatId, 'messages', d.id);
-      batchPromises.push(updateDoc(ref, { [`readBy.${currentUser.uid}`]: true }));
-    }
-  });
-  await Promise.all(batchPromises);
-}
-
-// Hook into openChat to mark read after messages load
-const _openChatOrig3 = window.openChat;
-window.openChat = async function(chatId){
-  await _openChatOrig3(chatId);
-  setTimeout(()=> markMessagesRead(chatId), 500); // delay to allow messages to render
-};
-
-// Utility to render read receipts on message node (add small avatars/count)
-function attachReadReceiptsToBubble(bubbleEl, messageData){
-  const readBy = messageData.readBy || {};
-  const uids = Object.keys(readBy);
-  if(!uids.length) return;
-  const container = document.createElement('div');
-  container.style.marginTop = '6px';
-  container.style.display = 'flex';
-  container.style.gap = '6px';
-  uids.slice(0,4).forEach(uid => {
-    const dot = document.createElement('div');
-    dot.title = uid;
-    dot.style.width='16px'; dot.style.height='16px'; dot.style.borderRadius='50%';
-    dot.style.background = '#7c3aed';
-    dot.style.display='inline-block';
-    container.appendChild(dot);
-  });
-  if(uids.length > 4){
-    const more = document.createElement('div'); more.textContent = `+${uids.length-4}`; more.style.fontSize='12px'; more.style.color='var(--muted)';
-    container.appendChild(more);
-  }
-  bubbleEl.appendChild(container);
-}
-
-// ========== Edit history ==========
-async function editMessage(chatId, messageId, newText){
-  const ref = doc(db, 'chats', chatId, 'messages', messageId);
-  const snap = await getDoc(ref);
-  if(!snap.exists()) return;
-  const data = snap.data();
-  const history = data.editHistory || [];
-  history.push({ text: data.text || '', editedAt: serverTimestamp(), editedBy: currentUser.uid });
-  await updateDoc(ref, { text: newText, editedAt: serverTimestamp(), editHistory: history });
-}
-
-// show edit history modal
-function showEditHistoryModal(history){
-  const modal = document.createElement('div');
-  modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)';
-  modal.style.background='#0b1220'; modal.style.padding='14px'; modal.style.border='1px solid rgba(255,255,255,0.04)';
-  modal.style.borderRadius='8px'; modal.style.zIndex=9999; modal.style.maxHeight='60vh'; modal.style.overflow='auto';
-  const list = document.createElement('div');
-  history.slice().reverse().forEach(h => {
-    const row = document.createElement('div'); row.style.marginBottom='8px';
-    const who = document.createElement('div'); who.style.fontSize='12px'; who.style.color='var(--muted)'; who.textContent = `By: ${h.editedBy} at ${new Date(h.editedAt.seconds*1000).toLocaleString()}`;
-    const t = document.createElement('div'); t.textContent = h.text;
-    row.appendChild(who); row.appendChild(t); list.appendChild(row);
-  });
-  modal.appendChild(list);
-  const close = document.createElement('button'); close.textContent='Close'; close.onclick=()=>modal.remove();
-  modal.appendChild(close);
-  document.body.appendChild(modal);
-}
-
-// ========== Forward message ==========
-async function forwardMessageToChat(srcChatId, msgId, destChatId){
-  const srcRef = doc(db, 'chats', srcChatId, 'messages', msgId);
-  const snap = await getDoc(srcRef);
-  if(!snap.exists()) return alert('Message not found');
-  const data = snap.data();
-  // copy relevant fields
-  const copy = {
-    senderId: currentUser.uid,
-    displayName: currentUser.displayName || currentUser.email.split('@')[0],
-    text: data.text ? `(Forwarded) ${data.text}` : '[Forwarded attachment]',
-    attachmentUrl: data.attachmentUrl || null,
-    forwardedFrom: { chatId: srcChatId, messageId: msgId, originalSender: data.senderId },
-    createdAt: serverTimestamp(),
-    reactions: {}
-  };
-  await addDoc(collection(db, 'chats', destChatId, 'messages'), copy);
-  toast('Message forwarded');
-}
-
-// quick UI: forward via prompt selecting chat id (you can replace with a nicer modal)
-async function promptForward(msgId){
-  const dest = prompt('Enter chatId to forward to:');
-  if(!dest) return;
-  await forwardMessageToChat(currentChatId, msgId, dest);
-}
-
-// ========== Admin remove / hard delete ==========
-async function adminRemoveMessage(chatId, messageId, removeAttachment=false){
-  // check admin privilege
-  const chatSnap = await getDoc(doc(db,'chats',chatId));
-  if(!chatSnap.exists()) return alert('Chat not found');
-  const admins = chatSnap.data().admins || [];
-  if(!admins.includes(currentUser.uid)) return alert('Only admins can remove messages');
-  const msgRef = doc(db, 'chats', chatId, 'messages', messageId);
-  const msgSnap = await getDoc(msgRef);
-  if(!msgSnap.exists()) return;
-  const data = msgSnap.data();
-  // set deleted flag
-  await updateDoc(msgRef, { deleted: true, text: '[removed by admin]' });
-  if(removeAttachment && data.attachmentUrl){
-    // best practice: use Cloud Function to remove storage objects securely.
-    // here we only attempt to remove if you want (requires path).
-    // recommend storing storagePath in message for secure deletion.
-    try{
-      // attempt naive delete if path provided in message (not always available)
-      // const path = data.attachmentPath;
-      // await deleteObject(ref(storage, path));
-      console.log('Attachment removal should be done via Cloud Function for security.');
-    }catch(e){
-      console.error(e);
-    }
-  }
-  toast('Message removed by admin');
-}
-
-// ========== UI polish: hover menus, copy message, timestamp tooltip ==========
-document.addEventListener('mouseover', (ev) => {
-  const row = ev.target.closest('.message-row');
-  if(!row) return;
-  // add menu if not exist
-  if(row.querySelector('.msg-menu')) return;
-  const menu = document.createElement('div'); menu.className='msg-menu'; menu.style.marginLeft='6px'; menu.style.display='flex'; menu.style.gap='6px';
-  const copyBtn = document.createElement('button'); copyBtn.textContent='Copy'; copyBtn.className='icon-btn';
-  copyBtn.onclick = (e) => { e.stopPropagation(); const txt = row.querySelector('.message-bubble div')?.textContent || ''; navigator.clipboard.writeText(txt); toast('Copied'); };
-  const forwardBtn = document.createElement('button'); forwardBtn.textContent='Forward'; forwardBtn.className='icon-btn';
-  forwardBtn.onclick = (e) => { e.stopPropagation(); const mid = row.dataset.msgId; promptForward(mid); };
-  menu.appendChild(copyBtn); menu.appendChild(forwardBtn);
-  row.appendChild(menu);
-});
-
-// clean up menus on mouseout
-document.addEventListener('mouseout', (ev) => {
-  const row = ev.target.closest('.message-row');
-  if(!row) return;
-  const menu = row.querySelector('.msg-menu');
-  if(menu) menu.remove();
-});
-
-// ========== Integrate read receipts display into polished renderer ==========
-// we update renderMessageNodePolished to call attachReadReceiptsToBubble
-const originalRender = window.renderMessageNode;
-window.renderMessageNode = function(messageId, m){
-  const node = originalRender(messageId, m);
-  // store msgId on node for later interactions
-  node.dataset.msgId = messageId;
-  // add read receipts
-  attachReadReceiptsToBubble(node.querySelector('.message-bubble'), m);
-  // add edited label if present
-  if(m.editedAt) {
-    const edited = document.createElement('div'); edited.style.fontSize='11px'; edited.style.color='var(--muted)'; edited.textContent='Edited';
-    node.querySelector('.message-bubble').appendChild(edited);
-  }
-  return node;
-};
-
-// expose admin remove function for console/testing
-window.adminRemoveMessage = adminRemoveMessage;
-window.forwardMessageToChat = forwardMessageToChat;
-
-// ===== End of Part 4 — Section 3 =====
-</script>
-<!-- ===== Part 5: Final wiring, security rules, and deployment checklist ===== -->
-<script type="module">
-// ===== Final wiring =====
-
-// Ensure currentUser var always up-to-date
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-  if(user){
-    // show Home by default
-    showSection('home');
-    // refresh UI
-    document.getElementById('myUID').textContent = user.uid;
-    setPresenceOnline();
-    refreshChatList(); // load chats into sidebar
-    // show intro modal if first-login handled earlier
-  } else {
-    // clear UI
-    document.getElementById('myUID').textContent = 'Not logged in';
-  }
-});
-
-// Refresh chats (safe idempotent)
-async function refreshChatList(){
-  // call the earlier refreshChatList if defined
-  if(typeof window.refreshChatList === 'function') {
-    try { await window.refreshChatList(); } catch(e){ console.error(e); }
-  } else {
-    // fallback: basic load
-    const q = query(collection(db,'chats'), orderBy('createdAt','desc'));
-    onSnapshot(q, snapshot => {
-      const userList = document.getElementById('userList'); userList.innerHTML = '';
-      snapshot.forEach(docSnap => {
-        const c = docSnap.data();
-        // show chats where public or user member
-        if(c.type === 'public' || (Array.isArray(c.members) && currentUser && c.members.includes(currentUser.uid))){
-          userList.appendChild(renderChatListItem(docSnap.id, c));
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+           {
+            username: 'New User',
+            country: '',
+            avatar: ''
+          }
         }
       });
-    });
+      if(error) throw error;
+      // Insert into users table
+      const { error: dbError } = await supabase.from('users').insert({
+        id: data.user.id,
+        email: email,
+        username: 'New User',
+        country: '',
+        avatar: ''
+      });
+      if(dbError) console.warn("User profile insert warning:", dbError);
+      alert('Sign Up Successful! Check email if required, then login.');
+    } catch(err){ 
+      alert(err.message || err.error_description || 'Sign up failed'); 
+    }
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    if(!email || !password){ alert('Enter email & password'); return; }
+    try{
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+      // Redirect handled by auth state change
+    } catch(err){ 
+      alert(err.message || 'Login failed'); 
+    }
+  });
+
+  // Hide login on auth success
+  let currentUser = null;
+  const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
+    if(event === 'SIGNED_IN' && session?.user){
+      currentUser = session.user;
+      loadApp();
+    } else if(event === 'SIGNED_OUT'){
+      currentUser = null;
+      showAuth();
+    }
+  });
+
+  function showAuth(){
+    document.getElementById('auth-container').style.display = 'flex';
+    document.body.style.display = 'block';
   }
-}
 
-// Quick helpers for creating UI triggers
-// Attach file button already inserted earlier; wire the attach icon to file picker
-const attachIcon = document.createElement('button'); attachIcon.className='icon-btn'; attachIcon.innerHTML='📎'; attachIcon.title='Attach file';
-attachIcon.onclick = () => triggerFilePick();
-document.querySelector('#composer')?.insertBefore(attachIcon, document.querySelector('#messageInput'));
-
-// Expose create DM UI (small modal)
-function quickCreateDM(){
-  const uid = prompt('Enter user UID to DM:');
-  if(!uid) return;
-  createDMWith(uid).catch(e=>alert(e.message));
-}
-function quickCreateGroup(){
-  const title = prompt('Group title:') || 'New Group';
-  const membersInput = prompt('Member UIDs (comma separated):') || '';
-  const members = membersInput.split(',').map(s=>s.trim()).filter(Boolean);
-  createGroup(title, members).catch(e=>alert(e.message));
-}
-const quickRow = document.createElement('div'); quickRow.style.display='flex'; quickRow.style.gap='8px'; quickRow.style.marginTop='6px';
-const dmBtn = document.createElement('button'); dmBtn.textContent='Create DM'; dmBtn.onclick = quickCreateDM;
-const groupBtn = document.createElement('button'); groupBtn.textContent='Create Group'; groupBtn.onclick = quickCreateGroup;
-quickRow.appendChild(dmBtn); quickRow.appendChild(groupBtn);
-document.getElementById('sidebar').appendChild(quickRow);
-
-// Pagination note (large chats): use query with limit and load older messages on scroll up
-// Not implemented fully here — consider using .limitToLast(50) and load more with startAfter/ endBefore pattern.
-
-// ===== Security rules (Recommendation) =====
-// Copy-paste these into Firebase console -> Firestore Rules (adjust as needed):
-/*
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
-    }
-    // Chats
-    match /chats/{chatId} {
-      allow read: if resource.data.type == 'public' || (request.auth != null && request.auth.uid in resource.data.members);
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && request.auth.uid in resource.data.admins;
-      // Messages subcollection
-      match /messages/{messageId} {
-        allow create: if request.auth != null && (resource == null ? true : request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members);
-        allow read: if request.auth != null && (get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'public' || request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members);
-        allow update, delete: if request.auth != null && (request.auth.uid == resource.data.senderId || request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.admins);
-      }
-      // Whiteboard strokes
-      match /whiteboard/{doc=**} {
-        allow read, write: if request.auth != null && (get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'public' || request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members);
-      }
-    }
+  function loadApp(){
+    document.getElementById('auth-container').style.display = 'none';
+    document.body.style.display = 'flex';
+    initMainApp();
   }
-}
-*/
 
-// Storage rules suggestion (Firebase Console -> Storage rules)
-/*
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /attachments/{chatId}/{allPaths=**} {
-      allow read, write: if request.auth != null && exists(/databases/(default)/documents/chats/$(chatId)) &&
-        (request.auth.uid in get(/databases/(default)/documents/chats/$(chatId)).data.members || get(/databases/(default)/documents/chats/$(chatId)).data.type == 'public');
+  // Initial check
+  (async () => {
+    const {  { session } } = await supabase.auth.getSession();
+    if(session?.user){
+      currentUser = session.user;
+      loadApp();
+    } else {
+      showAuth();
     }
-  }
-}
-*/
-
-// ===== Deployment & testing checklist =====
-/*
-1) Replace Firebase config placeholders with your project's values at the top (Part 1).
-2) Add your OpenWeatherMap API key in the weather fetch (or remove weather if you prefer).
-3) In Firebase Console:
-   - Enable Authentication: Email/Password.
-   - Create Firestore database (start in test mode while developing).
-   - Enable Realtime Database (for presence/typing).
-   - Enable Storage (for attachments).
-   - Add your hosting domain to Authentication's Authorized domains (if deploying).
-4) Firestore Rules: paste the recommended rules and adjust to your needs.
-5) Test flows locally:
-   - Open file in VS Code Live Server or serve via simple HTTP (file:// won't allow module imports sometimes).
-   - Sign up with an email, verify via email link, log in.
-   - Check UID appears in Settings -> share it to another account to test friend request flow.
-   - Create DM with friend, send messages, attach files.
-6) Deploy:
-   - GitHub Pages: push repo with index.html to repo's gh-pages branch or enable Pages from main branch (if static).
-   - Firebase Hosting: use `firebase init hosting` and `firebase deploy` (recommended).
-7) For advanced actions (delete attachments from bucket), use Cloud Functions (recommended) to securely remove objects.
-*/
-
-// ===== Final helper: small onboarding helper & footer =====
-function showOnboardingIfNeeded(){
-  if(!currentUser) return;
-  const uRef = doc(db,'users',currentUser.uid);
-  getDoc(uRef).then(snap => {
-    const d = snap.data();
-    if(!d) return;
-    if(!d.introShown){
-      introModal.style.display = 'flex';
-      updateDoc(uRef,{introShown:true});
-    }
-  }).catch(()=>{});
-}
-onAuthStateChanged(auth, u => { if(u) setTimeout(showOnboardingIfNeeded, 800); });
-
-// final small footer on Home
-const footer = document.createElement('div'); footer.style.position='absolute'; footer.style.right='18px'; footer.style.bottom='12px'; footer.style.fontSize='12px'; footer.style.color='var(--muted)'; footer.textContent='PriBrows — prototype';
-document.body.appendChild(footer);
-
-console.log('PriBrows final wiring loaded.');
-
+  })();
 </script>
-<!-- End of Part 5 -->
+
+<!-- ---------------- Main PriChat UI ---------------- -->
+<style>
+  body {display:flex;flex-direction:row;height:100vh;overflow:hidden;}
+  #auth-container{display:none;}
+
+  /* Left Sidebar */
+  #sidebar-left {width:250px;background:#202225;display:flex;flex-direction:column;}
+  #sidebar-left h2 {color:#fff;text-align:center;padding:15px 0;border-bottom:1px solid #333;}
+  #friends-list {flex:1;overflow-y:auto;}
+  .friend-item {padding:12px 15px;color:#ddd;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+  .friend-item:hover {background:#2f3136;border-radius:6px;}
+  .online-indicator {width:10px;height:10px;border-radius:50%;background:#43b581;margin-right:8px;}
+
+  /* Middle Chat Panel */
+  #chat-panel {flex:1;display:flex;flex-direction:column;background:#36393f;}
+  #chat-header {padding:15px;border-bottom:1px solid #2f3136;color:white;font-weight:bold;}
+  #messages-container {flex:1;overflow-y:auto;padding:15px;}
+  .message {margin-bottom:10px;display:flex;align-items:flex-start;}
+  .message.self {justify-content:flex-end;}
+  .message-content {background:#7289da;color:white;padding:10px;border-radius:8px;max-width:70%;word-wrap:break-word;}
+  .message-content.self {background:#5865f2;}
+  #chat-input-container {display:flex;padding:10px;border-top:1px solid #2f3136;}
+  #chat-input {flex:1;padding:10px;border-radius:6px;border:none;}
+  #send-btn {padding:10px 15px;margin-left:10px;border:none;border-radius:6px;background:#43b581;color:white;cursor:pointer;transition:0.2s;}
+  #send-btn:hover {background:#4cbf6f;}
+
+  /* Right Sidebar */
+  #sidebar-right {width:250px;background:#2f3136;display:flex;flex-direction:column;padding:15px;}
+  #profile-section img {width:80px;height:80px;border-radius:50%;margin-bottom:10px;}
+  #profile-section h3 {color:white;margin-bottom:5px;}
+  #profile-section p {color:#aaa;margin-bottom:5px;}
+  #profile-section button {padding:8px 12px;border:none;border-radius:6px;background:#5865f2;color:white;cursor:pointer;margin-top:5px;}
+  #profile-section button:hover {background:#7289da;}
+</style>
+
+<div id="sidebar-left">
+  <h2>Friends</h2>
+  <div id="friends-list"></div>
+</div>
+
+<div id="chat-panel">
+  <div id="chat-header">Select a friend to start chatting</div>
+  <div id="messages-container"></div>
+  <div id="chat-input-container">
+    <input type="text" id="chat-input" placeholder="Type a message..." disabled>
+    <button id="send-btn" disabled>Send</button>
+  </div>
+</div>
+
+<div id="sidebar-right">
+  <div id="profile-section">
+    <img id="profile-avatar" src="" alt="Avatar">
+    <h3 id="profile-username">Username</h3>
+    <p id="profile-email"></p>
+    <p id="profile-country"></p>
+    <p>UID: <span id="profile-uid"></span></p>
+    <button id="update-profile-btn">Update Profile</button>
+    <button id="logout-btn">Logout</button>
+  </div>
+</div>
+
+<script>
+  let activeChatUid = null;
+  let messagesChannel = null;
+
+  async function initMainApp(){
+    await loadUserProfile();
+    await loadFriends();
+    
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+    });
+
+    document.getElementById('update-profile-btn').addEventListener('click', async () => {
+      const newUsername = prompt('Enter new username:', document.getElementById('profile-username').textContent);
+      if(newUsername){
+        const { error } = await supabase
+          .from('users')
+          .update({ username: newUsername })
+          .eq('id', currentUser.id);
+        if(error){ alert('Update failed: ' + error.message); return; }
+        document.getElementById('profile-username').textContent = newUsername;
+        alert('Username updated!');
+      }
+    });
+
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+  }
+
+  async function loadUserProfile(){
+    const { data, error } = await supabase
+      .from('users')
+      .select('email, username, country, avatar')
+      .eq('id', currentUser.id)
+      .single();
+    
+    if(error){
+      console.error("Profile load error:", error);
+      return;
+    }
+
+    document.getElementById('profile-avatar').src = data.avatar || 'https://i.imgur.com/1Q9Z1ZQ.png';
+    document.getElementById('profile-username').textContent = data.username;
+    document.getElementById('profile-email').textContent = data.email;
+    document.getElementById('profile-country').textContent = data.country || 'Country not set';
+    document.getElementById('profile-uid').textContent = currentUser.id;
+  }
+
+  async function loadFriends(){
+    const { data, error } = await supabase
+      .from('users')
+      .select('friends')
+      .eq('id', currentUser.id)
+      .single();
+
+    if(error || !data?.friends?.length){
+      document.getElementById('friends-list').innerHTML = '<div style="padding:15px;color:#777;">No friends yet</div>';
+      return;
+    }
+
+    const friendsList = document.getElementById('friends-list');
+    friendsList.innerHTML = '';
+
+    for(const friendUid of data.friends){
+      const {  friendData } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', friendUid)
+        .single();
+      
+      if(friendData){
+        const friendItem = document.createElement('div');
+        friendItem.classList.add('friend-item');
+        friendItem.innerHTML = `<span><div class="online-indicator"></div>${friendData.username}</span><button onclick="startChat('${friendUid}','${friendData.username}')">Chat</button>`;
+        friendsList.appendChild(friendItem);
+      }
+    }
+  }
+
+  function getChatId(uid1, uid2){
+    return [uid1, uid2].sort().join('_');
+  }
+
+  function startChat(uid, username){
+    activeChatUid = uid;
+    document.getElementById('chat-header').textContent = 'Chat with ' + username;
+    document.getElementById('chat-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    loadMessages(uid);
+  }
+
+  async function loadMessages(friendUid){
+    const container = document.getElementById('messages-container');
+    container.innerHTML = 'Loading...';
+
+    // Clean up previous subscription
+    if(messagesChannel) {
+      await supabase.removeChannel(messagesChannel);
+      messagesChannel = null;
+    }
+
+    const chatId = getChatId(currentUser.id, friendUid);
+
+    // Initial load
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if(error) {
+      container.innerHTML = 'Failed to load messages.';
+      return;
+    }
+
+    renderMessages(data, container);
+
+    // Realtime subscription
+    messagesChannel = supabase
+      .channel(`chat-${chatId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          const msg = payload.new;
+          appendMessage(msg, container);
+        }
+      )
+      .subscribe();
+  }
+
+  function renderMessages(messages, container){
+    container.innerHTML = '';
+    messages.forEach(msg => appendMessage(msg, container));
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function appendMessage(msg, container){
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message');
+    if(msg.sender === currentUser.id) msgDiv.classList.add('self');
+    msgDiv.innerHTML = `<div class="message-content">${this.escapeHtml(msg.text)}</div>`;
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async function sendMessage(){
+    const text = document.getElementById('chat-input').value.trim();
+    if(!text || !activeChatUid) return;
+
+    const chatId = getChatId(currentUser.id, activeChatUid);
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chatId,
+        sender: currentUser.id,
+        text: text
+      });
+
+    if(error) alert('Send failed: ' + error.message);
+    else document.getElementById('chat-input').value = '';
+  }
+
+  // Expose to global scope for inline onclick
+  window.startChat = startChat;
+</script>
+
+</body>
+</html>
