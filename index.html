@@ -8,7 +8,7 @@
   <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.40.0/dist/umd/supabase.min.js"></script>
 
-  <!-- Inter Font (Discord/Instagram grade) -->
+  <!-- Inter Font -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -38,7 +38,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    button, input {
+    button, input, select {
       font-family: inherit;
       outline: none;
     }
@@ -56,7 +56,7 @@
       background: var(--bg-tertiary);
       padding: 32px;
       border-radius: 12px;
-      width: 360px;
+      width: 380px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       border: 1px solid var(--divider);
     }
@@ -69,10 +69,35 @@
       letter-spacing: -0.5px;
     }
 
-    #auth-box input {
+    .form-group {
+      margin: 12px 0;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .login-type-toggle {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .login-type-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    #auth-box input, #auth-box select {
       width: 100%;
       padding: 12px 14px;
-      margin: 8px 0;
       border-radius: 6px;
       border: 1px solid var(--divider);
       background: var(--bg-input);
@@ -81,7 +106,7 @@
       transition: border-color 0.2s;
     }
 
-    #auth-box input:focus {
+    #auth-box input:focus, #auth-box select:focus {
       border-color: var(--accent);
     }
 
@@ -103,7 +128,7 @@
       background: #4752c4;
     }
 
-    #auth-switch {
+    #auth-switch, #signup-switch {
       text-align: center;
       margin-top: 16px;
       color: var(--text-secondary);
@@ -111,9 +136,15 @@
       cursor: pointer;
     }
 
-    #auth-switch:hover {
+    #auth-switch:hover, #signup-switch:hover {
       color: var(--text-primary);
       text-decoration: underline;
+    }
+
+    .error {
+      color: var(--error);
+      font-size: 13px;
+      margin-top: 6px;
     }
 
     /* ===== MAIN APP ===== */
@@ -123,7 +154,6 @@
       height: 100vh;
     }
 
-    /* Sidebar Left - Icon Nav */
     #sidebar-left {
       width: 72px;
       background: var(--bg-secondary);
@@ -157,7 +187,6 @@
       color: var(--accent);
     }
 
-    /* Content Area */
     #content-area {
       flex: 1;
       display: flex;
@@ -165,7 +194,6 @@
       background: var(--bg-primary);
     }
 
-    /* Friends Section */
     #friends-section {
       display: flex;
       flex-direction: column;
@@ -223,7 +251,6 @@
       font-weight: 600;
     }
 
-    /* Chat Panel */
     #chat-panel {
       flex: 1;
       display: flex;
@@ -308,7 +335,6 @@
       background: #4752c4;
     }
 
-    /* Dreem Feed */
     #dreem-feed {
       display: none;
       flex-direction: column;
@@ -364,7 +390,6 @@
       font-size: 18px;
     }
 
-    /* Sidebar Right - Profile */
     #sidebar-right {
       width: 240px;
       background: var(--bg-secondary);
@@ -429,31 +454,83 @@
 <div id="auth-container">
   <div id="auth-box">
     <h1>PriChat</h1>
-    <input type="email" id="email" placeholder="Email" autocomplete="email" />
-    <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
-    <button id="login-btn">Login</button>
-    <button id="signup-btn">Create Account</button>
-    <div id="auth-switch">Don’t have an account? Sign up</div>
+    
+    <!-- LOGIN FORM -->
+    <div id="login-form">
+      <div class="login-type-toggle">
+        <label>
+          <input type="radio" name="login-type" value="email" checked /> Email
+        </label>
+        <label>
+          <input type="radio" name="login-type" value="username" /> Username
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="login-identifier">Email or Username</label>
+        <input type="text" id="login-identifier" placeholder="Enter your email" autocomplete="username" />
+      </div>
+      
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+      </div>
+      
+      <button id="login-btn">Login</button>
+      <div id="auth-switch">Don’t have an account? Sign up</div>
+    </div>
+
+    <!-- SIGNUP FORM -->
+    <div id="signup-form" style="display:none;">
+      <div class="form-group">
+        <label for="full-name">Full Name</label>
+        <input type="text" id="full-name" placeholder="e.g., Layla Hassan" autocomplete="name" />
+        <div id="name-error" class="error"></div>
+      </div>
+      <div class="form-group">
+        <label for="dob">Date of Birth</label>
+        <input type="date" id="dob" max="" />
+        <div id="dob-error" class="error"></div>
+      </div>
+      <div class="form-group">
+        <label for="signup-username">Preferred Username</label>
+        <input type="text" id="signup-username" placeholder="Choose a unique username" autocomplete="username" />
+        <div id="username-error" class="error"></div>
+      </div>
+      <div class="form-group">
+        <label for="signup-email">Email</label>
+        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email" />
+        <div id="email-error" class="error"></div>
+      </div>
+      <div class="form-group">
+        <label for="signup-password">Password</label>
+        <input type="password" id="signup-password" placeholder="At least 6 characters" autocomplete="new-password" />
+        <div id="password-error" class="error"></div>
+      </div>
+      <div class="form-group">
+        <label for="confirm-password">Confirm Password</label>
+        <input type="password" id="confirm-password" placeholder="Re-enter your password" autocomplete="new-password" />
+        <div id="confirm-error" class="error"></div>
+      </div>
+      <button id="signup-btn">Create Account</button>
+      <div id="signup-switch">Already have an account? Login</div>
+    </div>
   </div>
 </div>
 
 <!-- Main App -->
 <div id="app-container">
-  <!-- Left Icon Sidebar -->
   <div id="sidebar-left">
     <div class="nav-tab active" id="friends-tab" title="Friends">👥</div>
     <div class="nav-tab" id="dreem-tab" title="Dreem">🎬</div>
   </div>
 
-  <!-- Main Content -->
   <div id="content-area">
-    <!-- Friends Section -->
     <div id="friends-section">
       <div id="friends-header">FRIENDS</div>
       <div id="friends-list"></div>
     </div>
 
-    <!-- Chat Panel -->
     <div id="chat-panel" style="display:none;">
       <div id="chat-header">Select a friend to start chatting</div>
       <div id="messages-container"></div>
@@ -463,15 +540,14 @@
       </div>
     </div>
 
-    <!-- Dreem Feed -->
     <div id="dreem-feed"></div>
   </div>
 
-  <!-- Right Profile Sidebar -->
   <div id="sidebar-right">
     <div id="profile-section">
       <img id="profile-avatar" src="https://i.imgur.com/1Q9Z1ZQ.png" alt="Avatar" />
       <h3 id="profile-username">Loading...</h3>
+      <p id="profile-fullname"></p>
       <p id="profile-email"></p>
       <p id="profile-country"></p>
       <p>UID: <span id="profile-uid"></span></p>
@@ -490,6 +566,12 @@
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZGxvcWFrcHBzY29odHFqZ2hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNDgwNTQsImV4cCI6MjA4MzcyNDA1NH0.2L5nJXixDIYYTpxB0rP2tOQI0A50S23rkphhCHMC6GE";
   const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Set max DOB to 14 years ago
+  const today = new Date();
+  const minAgeDate = new Date();
+  minAgeDate.setFullYear(today.getFullYear() - 14);
+  document.getElementById('dob').max = minAgeDate.toISOString().split('T')[0];
+
   // ======================
   // STATE
   // ======================
@@ -499,314 +581,147 @@
   let currentView = 'friends';
 
   // ======================
-  // DOM ELEMENTS
+  // DOM
   // ======================
   const authContainer = document.getElementById('auth-container');
   const appContainer = document.getElementById('app-container');
-  const friendsSection = document.getElementById('friends-section');
-  const chatPanel = document.getElementById('chat-panel');
-  const dreemFeed = document.getElementById('dreem-feed');
-  const friendsTab = document.getElementById('friends-tab');
-  const dreemTab = document.getElementById('dreem-tab');
-
-  // ======================
-  // NAVIGATION
-  // ======================
-  function showView(view) {
-    friendsTab.classList.toggle('active', view === 'friends' || view === 'chat');
-    dreemTab.classList.toggle('active', view === 'dreem');
-
-    friendsSection.style.display = 'none';
-    chatPanel.style.display = 'none';
-    dreemFeed.style.display = 'none';
-
-    if (view === 'friends') {
-      friendsSection.style.display = 'flex';
-      currentView = 'friends';
-    } else if (view === 'chat') {
-      chatPanel.style.display = 'flex';
-      currentView = 'chat';
-    } else if (view === 'dreem') {
-      dreemFeed.style.display = 'flex';
-      loadDreemFeed();
-      currentView = 'dreem';
-    }
-  }
-
-  friendsTab.addEventListener('click', () => showView('friends'));
-  dreemTab.addEventListener('click', () => showView('dreem'));
-
-  // ======================
-  // AUTH (FIXED: NO FORCED SIGN-OUT)
-  // ======================
-  async function checkAuthState() {
-    // ✅ FIXED: Removed forced signOut()
-    const {  { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      currentUser = session.user;
-      authContainer.style.display = 'none';
-      appContainer.style.display = 'flex';
-      initApp();
-    } else {
-      authContainer.style.display = 'flex';
-      appContainer.style.display = 'none';
-    }
-  }
-
-  // Auth UI Toggle
-  let isLoginMode = true;
-  const emailInput = document.getElementById('email');
-  const passwordInput = document.getElementById('password');
-  const loginBtn = document.getElementById('login-btn');
-  const signupBtn = document.getElementById('signup-btn');
+  const loginForm = document.getElementById('login-form');
+  const signupForm = document.getElementById('signup-form');
   const authSwitch = document.getElementById('auth-switch');
+  const signupSwitch = document.getElementById('signup-switch');
 
+  // Toggle forms
   authSwitch.addEventListener('click', () => {
-    isLoginMode = !isLoginMode;
-    if (isLoginMode) {
-      loginBtn.style.display = 'block';
-      signupBtn.textContent = 'Create Account';
-      authSwitch.textContent = 'Don’t have an account? Sign up';
-    } else {
-      loginBtn.style.display = 'none';
-      signupBtn.textContent = 'Sign Up';
-      authSwitch.textContent = 'Already have an account? Log in';
-    }
+    loginForm.style.display = 'none';
+    signupForm.style.display = 'block';
   });
 
-  signupBtn.addEventListener('click', async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    if (!email || !password) { alert('Fill in both fields'); return; }
+  signupSwitch.addEventListener('click', () => {
+    signupForm.style.display = 'none';
+    loginForm.style.display = 'block';
+  });
+
+  // ======================
+  // VALIDATION
+  // ======================
+  function clearErrors() {
+    document.querySelectorAll('.error').forEach(el => el.textContent = '');
+  }
+
+  function showError(id, message) {
+    document.getElementById(id).textContent = message;
+  }
+
+  function validateSignup() {
+    clearErrors();
+    const fullName = document.getElementById('full-name').value.trim();
+    const dob = document.getElementById('dob').value;
+    const username = document.getElementById('signup-username').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+
+    let valid = true;
+
+    if (!fullName) {
+      showError('name-error', 'Full name is required');
+      valid = false;
+    }
+
+    if (!dob) {
+      showError('dob-error', 'Date of birth is required');
+      valid = false;
+    } else {
+      const dobDate = new Date(dob);
+      const age = today.getFullYear() - dobDate.getFullYear();
+      if (age < 14) {
+        showError('dob-error', 'You must be at least 14 years old');
+        valid = false;
+      }
+    }
+
+    if (!username || username.length < 3) {
+      showError('username-error', 'Username must be at least 3 characters');
+      valid = false;
+    }
+
+    if (!email || !email.includes('@')) {
+      showError('email-error', 'Valid email is required');
+      valid = false;
+    }
+
+    if (!password || password.length < 6) {
+      showError('password-error', 'Password must be at least 6 characters');
+      valid = false;
+    }
+
+    if (password !== confirm) {
+      showError('confirm-error', 'Passwords do not match');
+      valid = false;
+    }
+
+    return valid;
+  }
+
+  // ======================
+  // AUTH LOGIC
+  // ======================
+  document.getElementById('signup-btn').addEventListener('click', async () => {
+    if (!validateSignup()) return;
+
+    const fullName = document.getElementById('full-name').value.trim();
+    const dob = document.getElementById('dob').value;
+    const username = document.getElementById('signup-username').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+
     try {
+      const {  existing } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      if (existing) {
+        showError('username-error', 'Username already taken');
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+
       const { error: dbErr } = await supabase.from('users').insert({
         id: data.user.id,
-        email,
-        username: email.split('@')[0],
+        full_name: fullName,
+        date_of_birth: dob,
+        username: username,
+        email: email,
         country: '',
         avatar: ''
       });
+
+      if (dbErr) throw dbErr;
+
       alert('Account created! Please log in.');
-      isLoginMode = true;
-      authSwitch.click();
+      signupForm.style.display = 'none';
+      loginForm.style.display = 'block';
     } catch (err) {
-      alert(err.message || 'Sign-up failed');
+      alert('Sign-up failed: ' + (err.message || err.error_description));
     }
   });
 
-  loginBtn.addEventListener('click', async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    if (!email || !password) { alert('Fill in both fields'); return; }
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      setTimeout(checkAuthState, 500);
-    } catch (err) {
-      alert(err.message || 'Login failed');
-    }
-  });
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const identifier = document.getElementById('login-identifier').value.trim();
+    const password = document.getElementById('login-password').value;
 
-  // ======================
-  // MAIN APP INIT
-  // ======================
-  async function initApp() {
-    await loadProfile();
-    await loadFriends();
-
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      checkAuthState(); // refresh UI
-    });
-
-    document.getElementById('update-profile-btn').addEventListener('click', async () => {
-      const newUsername = prompt('New username:', document.getElementById('profile-username').textContent);
-      if (newUsername) {
-        const { error } = await supabase.from('users').update({ username: newUsername }).eq('id', currentUser.id);
-        if (error) return alert('Update failed');
-        document.getElementById('profile-username').textContent = newUsername;
-      }
-    });
-
-    document.getElementById('post-dreem-btn').addEventListener('click', openDreemUpload);
-    document.getElementById('send-btn').addEventListener('click', sendMessage);
-  }
-
-  async function loadProfile() {
-    const { data, error } = await supabase.from('users').select('email, username, country, avatar').eq('id', currentUser.id).single();
-    if (error) return console.error(error);
-    document.getElementById('profile-username').textContent = data.username;
-    document.getElementById('profile-email').textContent = data.email;
-    document.getElementById('profile-country').textContent = data.country || '—';
-    document.getElementById('profile-uid').textContent = currentUser.id;
-  }
-
-  async function loadFriends() {
-    const { data, error } = await supabase.from('users').select('friends').eq('id', currentUser.id).single();
-    const list = document.getElementById('friends-list');
-    if (error || !data.friends?.length) {
-      list.innerHTML = '<div style="padding:12px;color:#777;">No friends</div>';
+    if (!identifier || !password) {
+      alert('Please enter your email/username and password');
       return;
     }
-    list.innerHTML = '';
-    for (const uid of data.friends) {
-      const {  user } = await supabase.from('users').select('username').eq('id', uid).single();
-      if (user) {
-        const el = document.createElement('div');
-        el.className = 'friend-item';
-        el.innerHTML = `
-          <div class="friend-name">
-            <div class="online-indicator"></div>
-            ${escapeHtml(user.username)}
-          </div>
-          <button onclick="startChat('${uid}', '${escapeHtml(user.username)}')">Message</button>
-        `;
-        list.appendChild(el);
-      }
-    }
-  }
 
-  // ======================
-  // DREEM UPLOAD & FEED
-  // ======================
-  async function openDreemUpload() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,video/*';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    try {
+      let emailToUse = identifier;
 
-      const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'];
-      if (!allowedTypes.includes(file.type)) {
-        alert('Only JPG, PNG, MP4, or MOV files allowed.');
-        return;
-      }
-
-      if (file.size > 50 * 1024 * 1024) {
-        alert('File too large! Max 50MB.');
-        return;
-      }
-
-      const caption = prompt("Add a caption (optional):", "") || '';
-
-      try {
-        const filePath = `dreem/${currentUser.id}/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('dreem')
-          .upload(filePath, file, { upsert: false });
-
-        if (uploadError) throw uploadError;
-
-        const { error: dbError } = await supabase
-          .from('dreem_posts')
-          .insert({
-            user_id: currentUser.id,
-            file_path: filePath,
-            caption: caption,
-            mime_type: file.type
-          });
-
-        if (dbError) throw dbError;
-
-        alert('✅ Posted to Dreem!');
-        if (currentView === 'dreem') loadDreemFeed();
-      } catch (err) {
-        console.error('Dreem post failed:', err);
-        alert('❌ Failed to post: ' + (err.message || 'Unknown error'));
-      }
-    };
-    input.click();
-  }
-
-  async function loadDreemFeed() {
-    dreemFeed.innerHTML = '<div class="dreem-empty">No Dreem posts yet...</div>';
-
-    const { data, error } = await supabase
-      .from('dreem_posts')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error || !data?.length) return;
-
-    dreemFeed.innerHTML = '';
-    for (const post of data) {
-      const card = document.createElement('div');
-      card.className = 'dreem-card';
-
-      const {  urlData } = supabase.storage
-        .from('dreem')
-        .getPublicUrl(post.file_path);
-
-      const isVideo = post.mime_type.startsWith('video/');
-      let mediaHTML = '';
-
-      if (isVideo) {
-        mediaHTML = `<video class="dreem-video" muted playsinline><source src="${urlData.publicUrl}" type="${post.mime_type}"></video>`;
-      } else {
-        mediaHTML = `<img src="${urlData.publicUrl}" class="dreem-video" style="object-fit:contain;">`;
-      }
-
-      card.innerHTML = `
-        ${mediaHTML}
-        <div class="dreem-user">@${post.user_id.substring(0,8)}</div>
-        ${post.caption ? `<div class="dreem-overlay">${escapeHtml(post.caption)}</div>` : ''}
-      `;
-
-      dreemFeed.appendChild(card);
-
-      if (isVideo) {
-        const video = card.querySelector('video');
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) video.play().catch(() => {});
-            else video.pause();
-          });
-        }, { threshold: 0.7 });
-        observer.observe(card);
-      }
-    }
-  }
-
-  // ======================
-  // CHAT FUNCTIONS
-  // ======================
-  function startChat(uid, name) {
-    activeChatUid = uid;
-    document.getElementById('chat-header').textContent = name;
-    document.getElementById('chat-input').disabled = false;
-    document.getElementById('send-btn').disabled = false;
-    showView('chat');
-  }
-
-  async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text || !activeChatUid) return;
-    const chatId = getChatId(currentUser.id, activeChatUid);
-    const { error } = await supabase.from('messages').insert({ chat_id: chatId, sender: currentUser.id, text });
-    if (error) alert('Failed to send');
-    else input.value = '';
-  }
-
-  function getChatId(a, b) {
-    return [a, b].sort().join('_');
-  }
-
-  function escapeHtml(text) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return text.replace(/[&<>"']/g, s => map[s]);
-  }
-
-  // Expose to global scope
-  window.startChat = startChat;
-  window.escapeHtml = escapeHtml;
-
-  // Start app
-  checkAuthState();
-</script>
-
-</body>
-</html>
+      if (!identifier.includes('@')) {
+        const {  userRecord } = await supabase
+          .from('
