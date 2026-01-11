@@ -1,387 +1,818 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PriChat</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PriChat</title>
 
-<!-- Supabase SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.40.0/dist/umd/supabase.min.js"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.40.0/dist/umd/supabase.min.js"></script>
 
-<!-- Google Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Inter Font (Discord/Instagram grade) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<style>
-  /* Reset & Global */
-  * {margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
-  body, html {width:100%;height:100%;overflow:hidden;background:#121212;color:white;}
-  button,input {font-family:inherit;}
-  
-  /* Login / Signup UI */
-  #auth-container {display:flex;justify-content:center;align-items:center;height:100vh;background:#1e1e1e;}
-  #auth-box {background:#2a2a2a;padding:40px;border-radius:12px;width:350px;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
-  #auth-box h1 {text-align:center;margin-bottom:20px;color:#fff;}
-  #auth-box input {width:100%;padding:10px;margin:8px 0;border-radius:6px;border:none;background:#3a3a3a;color:white;}
-  #auth-box button {width:100%;padding:12px;margin-top:12px;border:none;border-radius:6px;background:#ff3b30;color:white;font-weight:bold;cursor:pointer;transition:0.2s;}
-  #auth-box button:hover {background:#ff574f;}
-  #auth-switch {text-align:center;margin-top:10px;color:#aaa;cursor:pointer;}
-  #auth-switch:hover {color:white;}
-</style>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #121212;
+      --bg-tertiary: #1a1a1a;
+      --bg-input: #222222;
+      --text-primary: #f0f0f0;
+      --text-secondary: #b0b0b0;
+      --accent: #5865F2;
+      --success: #43b581;
+      --error: #ff4d4d;
+      --divider: #2a2a2a;
+      --message-bg: #2e2e2e;
+      --message-self-bg: #5865F2;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input {
+      font-family: inherit;
+      outline: none;
+    }
+
+    /* ===== AUTH SCREEN ===== */
+    #auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: var(--bg-secondary);
+    }
+
+    #auth-box {
+      background: var(--bg-tertiary);
+      padding: 32px;
+      border-radius: 12px;
+      width: 360px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--divider);
+    }
+
+    #auth-box h1 {
+      text-align: center;
+      font-weight: 700;
+      font-size: 28px;
+      margin-bottom: 24px;
+      letter-spacing: -0.5px;
+    }
+
+    #auth-box input {
+      width: 100%;
+      padding: 12px 14px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid var(--divider);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 15px;
+      transition: border-color 0.2s;
+    }
+
+    #auth-box input:focus {
+      border-color: var(--accent);
+    }
+
+    #auth-box button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #auth-box button:hover {
+      background: #4752c4;
+    }
+
+    #auth-switch {
+      text-align: center;
+      margin-top: 16px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #auth-switch:hover {
+      color: var(--text-primary);
+      text-decoration: underline;
+    }
+
+    /* ===== MAIN APP ===== */
+    #app-container {
+      display: none;
+      flex-direction: row;
+      height: 100vh;
+    }
+
+    /* Sidebar Left - Icon Nav */
+    #sidebar-left {
+      width: 72px;
+      background: var(--bg-secondary);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--divider);
+      align-items: center;
+      padding-top: 16px;
+      gap: 24px;
+    }
+
+    .nav-tab {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .nav-tab.active, .nav-tab:hover {
+      color: white;
+      background: var(--bg-tertiary);
+    }
+
+    .nav-tab.active {
+      color: var(--accent);
+    }
+
+    /* Content Area */
+    #content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+    }
+
+    /* Friends Section */
+    #friends-section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #friends-header {
+      padding: 16px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--divider);
+    }
+
+    #friends-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .friend-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .friend-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .friend-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+    }
+
+    .online-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .friend-item button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Chat Panel */
+    #chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #chat-header {
+      padding: 16px 20px;
+      font-size: 18px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    #messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      display: flex;
+      max-width: 70%;
+    }
+
+    .message.self {
+      align-self: flex-end;
+    }
+
+    .message-content {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 15px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .message:not(.self) .message-content {
+      background: var(--message-bg);
+      color: var(--text-primary);
+    }
+
+    .message.self .message-content {
+      background: var(--message-self-bg);
+      color: white;
+    }
+
+    #chat-input-container {
+      padding: 16px;
+      border-top: 1px solid var(--divider);
+      display: flex;
+      gap: 10px;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--divider);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 15px;
+    }
+
+    #chat-input:focus {
+      border-color: var(--accent);
+    }
+
+    #send-btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #send-btn:hover {
+      background: #4752c4;
+    }
+
+    /* Dreem Feed */
+    #dreem-feed {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .dreem-card {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      background: black;
+    }
+
+    .dreem-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      outline: none;
+    }
+
+    .dreem-overlay {
+      position: absolute;
+      bottom: 100px;
+      left: 20px;
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+      max-width: 70%;
+    }
+
+    .dreem-user {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-weight: 700;
+      font-size: 16px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    .dreem-empty {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: var(--text-secondary);
+      font-size: 18px;
+    }
+
+    /* Sidebar Right - Profile */
+    #sidebar-right {
+      width: 240px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--divider);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--divider);
+    }
+
+    #profile-section h3 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    #profile-section p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    #profile-section button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #update-profile-btn {
+      background: var(--accent);
+      color: white;
+    }
+
+    #post-dreem-btn {
+      background: #ff3b30;
+      color: white;
+    }
+
+    #logout-btn {
+      background: var(--error);
+      color: white;
+    }
+
+    #update-profile-btn:hover { background: #4752c4; }
+    #post-dreem-btn:hover { background: #ff574f; }
+    #logout-btn:hover { background: #ff3333; }
+  </style>
 </head>
 <body>
 
+<!-- Auth Screen -->
 <div id="auth-container">
   <div id="auth-box">
     <h1>PriChat</h1>
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Password">
+    <input type="email" id="email" placeholder="Email" autocomplete="email" />
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
     <button id="login-btn">Login</button>
-    <button id="signup-btn">Sign Up</button>
-    <div id="auth-switch">Don't have an account? Sign Up</div>
+    <button id="signup-btn">Create Account</button>
+    <div id="auth-switch">Don’t have an account? Sign up</div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app-container">
+  <!-- Left Icon Sidebar -->
+  <div id="sidebar-left">
+    <div class="nav-tab active" id="friends-tab" title="Friends">👥</div>
+    <div class="nav-tab" id="dreem-tab" title="Dreem">🎬</div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="content-area">
+    <!-- Friends Section -->
+    <div id="friends-section">
+      <div id="friends-header">FRIENDS</div>
+      <div id="friends-list"></div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div id="chat-panel" style="display:none;">
+      <div id="chat-header">Select a friend to start chatting</div>
+      <div id="messages-container"></div>
+      <div id="chat-input-container">
+        <input type="text" id="chat-input" placeholder="Message..." disabled />
+        <button id="send-btn" disabled>Send</button>
+      </div>
+    </div>
+
+    <!-- Dreem Feed -->
+    <div id="dreem-feed"></div>
+  </div>
+
+  <!-- Right Profile Sidebar -->
+  <div id="sidebar-right">
+    <div id="profile-section">
+      <img id="profile-avatar" src="https://i.imgur.com/1Q9Z1ZQ.png" alt="Avatar" />
+      <h3 id="profile-username">Loading...</h3>
+      <p id="profile-email"></p>
+      <p id="profile-country"></p>
+      <p>UID: <span id="profile-uid"></span></p>
+      <button id="update-profile-btn">Edit Profile</button>
+      <button id="post-dreem-btn">+ Post to Dreem</button>
+      <button id="logout-btn">Log Out</button>
+    </div>
   </div>
 </div>
 
 <script>
-  // ---------------- Supabase Configuration ----------------
+  // ======================
+  // SUPABASE CONFIG
+  // ======================
   const SUPABASE_URL = "https://qndloqakppscohtqjghs.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZGxvcWFrcHBzY29odHFqZ2hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNDgwNTQsImV4cCI6MjA4MzcyNDA1NH0.2L5nJXixDIYYTpxB0rP2tOQI0A50S23rkphhCHMC6GE";
-
   const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ---------------- UI Elements ----------------
+  // ======================
+  // STATE
+  // ======================
+  let currentUser = null;
+  let activeChatUid = null;
+  let messagesChannel = null;
+  let currentView = 'friends';
+
+  // ======================
+  // DOM ELEMENTS
+  // ======================
+  const authContainer = document.getElementById('auth-container');
+  const appContainer = document.getElementById('app-container');
+  const friendsSection = document.getElementById('friends-section');
+  const chatPanel = document.getElementById('chat-panel');
+  const dreemFeed = document.getElementById('dreem-feed');
+  const friendsTab = document.getElementById('friends-tab');
+  const dreemTab = document.getElementById('dreem-tab');
+
+  // ======================
+  // NAVIGATION
+  // ======================
+  function showView(view) {
+    friendsTab.classList.toggle('active', view === 'friends' || view === 'chat');
+    dreemTab.classList.toggle('active', view === 'dreem');
+
+    friendsSection.style.display = 'none';
+    chatPanel.style.display = 'none';
+    dreemFeed.style.display = 'none';
+
+    if (view === 'friends') {
+      friendsSection.style.display = 'flex';
+      currentView = 'friends';
+    } else if (view === 'chat') {
+      chatPanel.style.display = 'flex';
+      currentView = 'chat';
+    } else if (view === 'dreem') {
+      dreemFeed.style.display = 'flex';
+      loadDreemFeed();
+      currentView = 'dreem';
+    }
+  }
+
+  friendsTab.addEventListener('click', () => showView('friends'));
+  dreemTab.addEventListener('click', () => showView('dreem'));
+
+  // ======================
+  // AUTH
+  // ======================
+  async function checkAuthState() {
+    // 🔥 Remove this line later if you want persistent login
+    await supabase.auth.signOut();
+
+    const {  { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      currentUser = session.user;
+      authContainer.style.display = 'none';
+      appContainer.style.display = 'flex';
+      initApp();
+    } else {
+      authContainer.style.display = 'flex';
+      appContainer.style.display = 'none';
+    }
+  }
+
+  // Auth UI Toggle
+  let isLoginMode = true;
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
   const loginBtn = document.getElementById('login-btn');
   const signupBtn = document.getElementById('signup-btn');
   const authSwitch = document.getElementById('auth-switch');
 
-  let isLoginMode = true;
-
   authSwitch.addEventListener('click', () => {
     isLoginMode = !isLoginMode;
-    if(isLoginMode){
-      loginBtn.style.display = "block";
-      signupBtn.textContent = "Sign Up";
-      authSwitch.textContent = "Don't have an account? Sign Up";
+    if (isLoginMode) {
+      loginBtn.style.display = 'block';
+      signupBtn.textContent = 'Create Account';
+      authSwitch.textContent = 'Don’t have an account? Sign up';
     } else {
-      loginBtn.style.display = "none";
-      signupBtn.textContent = "Create Account";
-      authSwitch.textContent = "Already have an account? Login";
+      loginBtn.style.display = 'none';
+      signupBtn.textContent = 'Sign Up';
+      authSwitch.textContent = 'Already have an account? Log in';
     }
   });
 
-  // ---------------- Auth Functions ----------------
   signupBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     const password = passwordInput.value;
-    if(!email || !password){ alert('Enter email & password'); return; }
-    try{
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-           {
-            username: 'New User',
-            country: '',
-            avatar: ''
-          }
-        }
-      });
-      if(error) throw error;
-      // Insert into users table
-      const { error: dbError } = await supabase.from('users').insert({
+    if (!email || !password) { alert('Fill in both fields'); return; }
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      const { error: dbErr } = await supabase.from('users').insert({
         id: data.user.id,
-        email: email,
-        username: 'New User',
+        email,
+        username: email.split('@')[0],
         country: '',
         avatar: ''
       });
-      if(dbError) console.warn("User profile insert warning:", dbError);
-      alert('Sign Up Successful! Check email if required, then login.');
-    } catch(err){ 
-      alert(err.message || err.error_description || 'Sign up failed'); 
+      alert('Account created! Please log in.');
+      isLoginMode = true;
+      authSwitch.click();
+    } catch (err) {
+      alert(err.message || 'Sign-up failed');
     }
   });
 
   loginBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     const password = passwordInput.value;
-    if(!email || !password){ alert('Enter email & password'); return; }
-    try{
+    if (!email || !password) { alert('Fill in both fields'); return; }
+    try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if(error) throw error;
-      // Redirect handled by auth state change
-    } catch(err){ 
-      alert(err.message || 'Login failed'); 
+      if (error) throw error;
+      setTimeout(checkAuthState, 500);
+    } catch (err) {
+      alert(err.message || 'Login failed');
     }
   });
 
-  // Hide login on auth success
-  let currentUser = null;
-  const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
-    if(event === 'SIGNED_IN' && session?.user){
-      currentUser = session.user;
-      loadApp();
-    } else if(event === 'SIGNED_OUT'){
-      currentUser = null;
-      showAuth();
-    }
-  });
-
-  function showAuth(){
-    document.getElementById('auth-container').style.display = 'flex';
-    document.body.style.display = 'block';
-  }
-
-  function loadApp(){
-    document.getElementById('auth-container').style.display = 'none';
-    document.body.style.display = 'flex';
-    initMainApp();
-  }
-
-  // Initial check
-  (async () => {
-    const {  { session } } = await supabase.auth.getSession();
-    if(session?.user){
-      currentUser = session.user;
-      loadApp();
-    } else {
-      showAuth();
-    }
-  })();
-</script>
-
-<!-- ---------------- Main PriChat UI ---------------- -->
-<style>
-  body {display:flex;flex-direction:row;height:100vh;overflow:hidden;}
-  #auth-container{display:none;}
-
-  /* Left Sidebar */
-  #sidebar-left {width:250px;background:#202225;display:flex;flex-direction:column;}
-  #sidebar-left h2 {color:#fff;text-align:center;padding:15px 0;border-bottom:1px solid #333;}
-  #friends-list {flex:1;overflow-y:auto;}
-  .friend-item {padding:12px 15px;color:#ddd;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
-  .friend-item:hover {background:#2f3136;border-radius:6px;}
-  .online-indicator {width:10px;height:10px;border-radius:50%;background:#43b581;margin-right:8px;}
-
-  /* Middle Chat Panel */
-  #chat-panel {flex:1;display:flex;flex-direction:column;background:#36393f;}
-  #chat-header {padding:15px;border-bottom:1px solid #2f3136;color:white;font-weight:bold;}
-  #messages-container {flex:1;overflow-y:auto;padding:15px;}
-  .message {margin-bottom:10px;display:flex;align-items:flex-start;}
-  .message.self {justify-content:flex-end;}
-  .message-content {background:#7289da;color:white;padding:10px;border-radius:8px;max-width:70%;word-wrap:break-word;}
-  .message-content.self {background:#5865f2;}
-  #chat-input-container {display:flex;padding:10px;border-top:1px solid #2f3136;}
-  #chat-input {flex:1;padding:10px;border-radius:6px;border:none;}
-  #send-btn {padding:10px 15px;margin-left:10px;border:none;border-radius:6px;background:#43b581;color:white;cursor:pointer;transition:0.2s;}
-  #send-btn:hover {background:#4cbf6f;}
-
-  /* Right Sidebar */
-  #sidebar-right {width:250px;background:#2f3136;display:flex;flex-direction:column;padding:15px;}
-  #profile-section img {width:80px;height:80px;border-radius:50%;margin-bottom:10px;}
-  #profile-section h3 {color:white;margin-bottom:5px;}
-  #profile-section p {color:#aaa;margin-bottom:5px;}
-  #profile-section button {padding:8px 12px;border:none;border-radius:6px;background:#5865f2;color:white;cursor:pointer;margin-top:5px;}
-  #profile-section button:hover {background:#7289da;}
-</style>
-
-<div id="sidebar-left">
-  <h2>Friends</h2>
-  <div id="friends-list"></div>
-</div>
-
-<div id="chat-panel">
-  <div id="chat-header">Select a friend to start chatting</div>
-  <div id="messages-container"></div>
-  <div id="chat-input-container">
-    <input type="text" id="chat-input" placeholder="Type a message..." disabled>
-    <button id="send-btn" disabled>Send</button>
-  </div>
-</div>
-
-<div id="sidebar-right">
-  <div id="profile-section">
-    <img id="profile-avatar" src="" alt="Avatar">
-    <h3 id="profile-username">Username</h3>
-    <p id="profile-email"></p>
-    <p id="profile-country"></p>
-    <p>UID: <span id="profile-uid"></span></p>
-    <button id="update-profile-btn">Update Profile</button>
-    <button id="logout-btn">Logout</button>
-  </div>
-</div>
-
-<script>
-  let activeChatUid = null;
-  let messagesChannel = null;
-
-  async function initMainApp(){
-    await loadUserProfile();
+  // ======================
+  // MAIN APP INIT
+  // ======================
+  async function initApp() {
+    await loadProfile();
     await loadFriends();
-    
+
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await supabase.auth.signOut();
+      showAuth();
     });
 
     document.getElementById('update-profile-btn').addEventListener('click', async () => {
-      const newUsername = prompt('Enter new username:', document.getElementById('profile-username').textContent);
-      if(newUsername){
-        const { error } = await supabase
-          .from('users')
-          .update({ username: newUsername })
-          .eq('id', currentUser.id);
-        if(error){ alert('Update failed: ' + error.message); return; }
+      const newUsername = prompt('New username:', document.getElementById('profile-username').textContent);
+      if (newUsername) {
+        const { error } = await supabase.from('users').update({ username: newUsername }).eq('id', currentUser.id);
+        if (error) return alert('Update failed');
         document.getElementById('profile-username').textContent = newUsername;
-        alert('Username updated!');
       }
     });
 
+    document.getElementById('post-dreem-btn').addEventListener('click', openDreemUpload);
     document.getElementById('send-btn').addEventListener('click', sendMessage);
   }
 
-  async function loadUserProfile(){
-    const { data, error } = await supabase
-      .from('users')
-      .select('email, username, country, avatar')
-      .eq('id', currentUser.id)
-      .single();
-    
-    if(error){
-      console.error("Profile load error:", error);
-      return;
-    }
+  function showAuth() {
+    authContainer.style.display = 'flex';
+    appContainer.style.display = 'none';
+  }
 
-    document.getElementById('profile-avatar').src = data.avatar || 'https://i.imgur.com/1Q9Z1ZQ.png';
+  async function loadProfile() {
+    const { data, error } = await supabase.from('users').select('email, username, country, avatar').eq('id', currentUser.id).single();
+    if (error) return console.error(error);
     document.getElementById('profile-username').textContent = data.username;
     document.getElementById('profile-email').textContent = data.email;
-    document.getElementById('profile-country').textContent = data.country || 'Country not set';
+    document.getElementById('profile-country').textContent = data.country || '—';
     document.getElementById('profile-uid').textContent = currentUser.id;
   }
 
-  async function loadFriends(){
-    const { data, error } = await supabase
-      .from('users')
-      .select('friends')
-      .eq('id', currentUser.id)
-      .single();
-
-    if(error || !data?.friends?.length){
-      document.getElementById('friends-list').innerHTML = '<div style="padding:15px;color:#777;">No friends yet</div>';
+  async function loadFriends() {
+    const { data, error } = await supabase.from('users').select('friends').eq('id', currentUser.id).single();
+    const list = document.getElementById('friends-list');
+    if (error || !data.friends?.length) {
+      list.innerHTML = '<div style="padding:12px;color:#777;">No friends</div>';
       return;
     }
-
-    const friendsList = document.getElementById('friends-list');
-    friendsList.innerHTML = '';
-
-    for(const friendUid of data.friends){
-      const {  friendData } = await supabase
-        .from('users')
-        .select('username')
-        .eq('id', friendUid)
-        .single();
-      
-      if(friendData){
-        const friendItem = document.createElement('div');
-        friendItem.classList.add('friend-item');
-        friendItem.innerHTML = `<span><div class="online-indicator"></div>${friendData.username}</span><button onclick="startChat('${friendUid}','${friendData.username}')">Chat</button>`;
-        friendsList.appendChild(friendItem);
+    list.innerHTML = '';
+    for (const uid of data.friends) {
+      const {  user } = await supabase.from('users').select('username').eq('id', uid).single();
+      if (user) {
+        const el = document.createElement('div');
+        el.className = 'friend-item';
+        el.innerHTML = `
+          <div class="friend-name">
+            <div class="online-indicator"></div>
+            ${escapeHtml(user.username)}
+          </div>
+          <button onclick="startChat('${uid}', '${escapeHtml(user.username)}')">Message</button>
+        `;
+        list.appendChild(el);
       }
     }
   }
 
-  function getChatId(uid1, uid2){
-    return [uid1, uid2].sort().join('_');
+  // ======================
+  // DREEM UPLOAD & FEED
+  // ======================
+  async function openDreemUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Only JPG, PNG, MP4, or MOV files allowed.');
+        return;
+      }
+
+      if (file.size > 50 * 1024 * 1024) {
+        alert('File too large! Max 50MB.');
+        return;
+      }
+
+      const caption = prompt("Add a caption (optional):", "") || '';
+
+      try {
+        const filePath = `dreem/${currentUser.id}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('dreem')
+          .upload(filePath, file, { upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { error: dbError } = await supabase
+          .from('dreem_posts')
+          .insert({
+            user_id: currentUser.id,
+            file_path: filePath,
+            caption: caption,
+            mime_type: file.type
+          });
+
+        if (dbError) throw dbError;
+
+        alert('✅ Posted to Dreem!');
+        if (currentView === 'dreem') loadDreemFeed();
+      } catch (err) {
+        console.error('Dreem post failed:', err);
+        alert('❌ Failed to post: ' + (err.message || 'Unknown error'));
+      }
+    };
+    input.click();
   }
 
-  function startChat(uid, username){
+  async function loadDreemFeed() {
+    dreemFeed.innerHTML = '<div class="dreem-empty">No Dreem posts yet...</div>';
+
+    const { data, error } = await supabase
+      .from('dreem_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data?.length) return;
+
+    dreemFeed.innerHTML = '';
+    for (const post of data) {
+      const card = document.createElement('div');
+      card.className = 'dreem-card';
+
+      const {  urlData } = supabase.storage
+        .from('dreem')
+        .getPublicUrl(post.file_path);
+
+      const isVideo = post.mime_type.startsWith('video/');
+      let mediaHTML = '';
+
+      if (isVideo) {
+        mediaHTML = `<video class="dreem-video" muted playsinline><source src="${urlData.publicUrl}" type="${post.mime_type}"></video>`;
+      } else {
+        mediaHTML = `<img src="${urlData.publicUrl}" class="dreem-video" style="object-fit:contain;">`;
+      }
+
+      card.innerHTML = `
+        ${mediaHTML}
+        <div class="dreem-user">@${post.user_id.substring(0,8)}</div>
+        ${post.caption ? `<div class="dreem-overlay">${escapeHtml(post.caption)}</div>` : ''}
+      `;
+
+      dreemFeed.appendChild(card);
+
+      if (isVideo) {
+        const video = card.querySelector('video');
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) video.play().catch(() => {});
+            else video.pause();
+          });
+        }, { threshold: 0.7 });
+        observer.observe(card);
+      }
+    }
+  }
+
+  // ======================
+  // CHAT FUNCTIONS
+  // ======================
+  function startChat(uid, name) {
     activeChatUid = uid;
-    document.getElementById('chat-header').textContent = 'Chat with ' + username;
+    document.getElementById('chat-header').textContent = name;
     document.getElementById('chat-input').disabled = false;
     document.getElementById('send-btn').disabled = false;
-    loadMessages(uid);
+    showView('chat');
   }
 
-  async function loadMessages(friendUid){
-    const container = document.getElementById('messages-container');
-    container.innerHTML = 'Loading...';
-
-    // Clean up previous subscription
-    if(messagesChannel) {
-      await supabase.removeChannel(messagesChannel);
-      messagesChannel = null;
-    }
-
-    const chatId = getChatId(currentUser.id, friendUid);
-
-    // Initial load
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
-
-    if(error) {
-      container.innerHTML = 'Failed to load messages.';
-      return;
-    }
-
-    renderMessages(data, container);
-
-    // Realtime subscription
-    messagesChannel = supabase
-      .channel(`chat-${chatId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
-        (payload) => {
-          const msg = payload.new;
-          appendMessage(msg, container);
-        }
-      )
-      .subscribe();
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !activeChatUid) return;
+    const chatId = getChatId(currentUser.id, activeChatUid);
+    const { error } = await supabase.from('messages').insert({ chat_id: chatId, sender: currentUser.id, text });
+    if (error) alert('Failed to send');
+    else input.value = '';
   }
 
-  function renderMessages(messages, container){
-    container.innerHTML = '';
-    messages.forEach(msg => appendMessage(msg, container));
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function appendMessage(msg, container){
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message');
-    if(msg.sender === currentUser.id) msgDiv.classList.add('self');
-    msgDiv.innerHTML = `<div class="message-content">${this.escapeHtml(msg.text)}</div>`;
-    container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
+  function getChatId(a, b) {
+    return [a, b].sort().join('_');
   }
 
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<>"']/g, s => map[s]);
   }
 
-  async function sendMessage(){
-    const text = document.getElementById('chat-input').value.trim();
-    if(!text || !activeChatUid) return;
-
-    const chatId = getChatId(currentUser.id, activeChatUid);
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        chat_id: chatId,
-        sender: currentUser.id,
-        text: text
-      });
-
-    if(error) alert('Send failed: ' + error.message);
-    else document.getElementById('chat-input').value = '';
-  }
-
-  // Expose to global scope for inline onclick
+  // Expose to global scope
   window.startChat = startChat;
+  window.escapeHtml = escapeHtml;
+
+  // Start app
+  checkAuthState();
 </script>
 
 </body>
