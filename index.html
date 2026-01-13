@@ -657,8 +657,8 @@
         <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
       </div>
       
-      <button id="login-btn">Login</button>
-      <div id="auth-switch">Don’t have an account? Sign up</div>
+      <button id="login-btn" onclick="login()">Login</button>
+      <div id="auth-switch" onclick="showSignupForm()">Don’t have an account? Sign up</div>
     </div>
 
     <!-- SIGNUP FORM -->
@@ -693,8 +693,8 @@
         <input type="password" id="confirm-password" placeholder="Re-enter your password" autocomplete="new-password" />
         <div id="confirm-error" class="error"></div>
       </div>
-      <button id="signup-btn">Create Account</button>
-      <div id="signup-switch">Already have an account? Login</div>
+      <button id="signup-btn" onclick="signup()">Create Account</button>
+      <div id="signup-switch" onclick="showLoginForm()">Already have an account? Login</div>
     </div>
   </div>
 </div>
@@ -703,9 +703,9 @@
 <div id="pin-modal">
   <div id="pin-box">
     <h2 style="text-align:center;margin-bottom:20px;">🔒 Enter PIN</h2>
-    <input type="password" id="pin-input" maxlength="6" placeholder="••••••" />
+    <input type="password" id="pin-input" maxlength="6" placeholder="••••••" onkeypress="if(event.key==='Enter') submitPin()" />
     <div id="pin-error"></div>
-    <button id="pin-submit" style="margin-top:20px;">Unlock</button>
+    <button id="pin-submit" style="margin-top:20px;" onclick="submitPin()">Unlock</button>
   </div>
 </div>
 
@@ -713,9 +713,9 @@
 <div id="mood-modal">
   <div id="mood-box">
     <h2 style="text-align:center;margin-bottom:20px;">💭 Set Your Daily Mood</h2>
-    <textarea id="mood-text" placeholder="How are you feeling today? (max 60 words)"></textarea>
+    <textarea id="mood-text" placeholder="How are you feeling today? (max 60 words)" oninput="updateWordCount()"></textarea>
     <div id="word-count">0/60 words</div>
-    <button id="mood-save" style="margin-top:20px;">Save Mood</button>
+    <button id="mood-save" style="margin-top:20px;" onclick="saveMood()">Save Mood</button>
   </div>
 </div>
 
@@ -727,7 +727,7 @@
       <img id="profile-avatar-small" src="https://i.imgur.com/1Q9Z1ZQ.png" alt="Avatar" />
       <div>
         <div id="username-display">Loading...</div>
-        <div class="mood-bubble" id="mood-bubble">Mood not set today</div>
+        <div class="mood-bubble" id="mood-bubble" onclick="document.getElementById('mood-modal').style.display='flex'">Mood not set today</div>
       </div>
     </div>
     <div id="inchat-display">inchaT: <span id="inchat-count">50</span></div>
@@ -736,8 +736,8 @@
   <div style="display:flex;flex:1;overflow:hidden;">
     <!-- Left Icon Sidebar -->
     <div id="sidebar-left">
-      <div class="nav-tab active" id="friends-tab" title="Friends">👥</div>
-      <div class="nav-tab" id="dreem-tab" title="Dreem">🎬</div>
+      <div class="nav-tab active" id="friends-tab" title="Friends" onclick="showView('friends')">👥</div>
+      <div class="nav-tab" id="dreem-tab" title="Dreem" onclick="showView('dreem')">🎬</div>
     </div>
 
     <!-- Main Content -->
@@ -760,7 +760,7 @@
         <div id="messages-container"></div>
         <div id="chat-input-container">
           <input type="text" id="chat-input" placeholder="Message..." disabled />
-          <button id="send-btn" disabled>Send</button>
+          <button id="send-btn" disabled onclick="sendMessage()">Send</button>
         </div>
       </div>
 
@@ -778,9 +778,9 @@
         <p id="profile-country"></p>
         <p>Minions: <span id="minion-count">0</span></p>
         <p>UID: <span id="profile-uid"></span></p>
-        <button id="update-profile-btn">Edit Profile</button>
-        <button id="post-dreem-btn">+ Post to Dreem</button>
-        <button id="logout-btn">Log Out</button>
+        <button id="update-profile-btn" onclick="updateProfile()">Edit Profile</button>
+        <button id="post-dreem-btn" onclick="openDreemUpload()">+ Post to Dreem</button>
+        <button id="logout-btn" onclick="logout()">Log Out</button>
       </div>
     </div>
   </div>
@@ -814,7 +814,7 @@
   let inchaT = 50;
 
   // ======================
-  // AUTH UI TOGGLE
+  // UI FUNCTIONS (INLINE)
   // ======================
   function showLoginForm() {
     document.getElementById('login-form').style.display = 'block';
@@ -828,27 +828,30 @@
     document.getElementById('auth-title').textContent = 'Create Account';
   }
 
-  document.getElementById('auth-switch').addEventListener('click', showSignupForm);
-  document.getElementById('signup-switch').addEventListener('click', showLoginForm);
+  function showView(view) {
+    document.getElementById('friends-tab').classList.toggle('active', view === 'friends' || view === 'chat');
+    document.getElementById('dreem-tab').classList.toggle('active', view === 'dreem');
+
+    document.getElementById('friends-section').style.display = 'none';
+    document.getElementById('chat-panel').style.display = 'none';
+    document.getElementById('dreem-feed').style.display = 'none';
+
+    if (view === 'friends') {
+      document.getElementById('friends-section').style.display = 'flex';
+      currentView = 'friends';
+    } else if (view === 'chat') {
+      document.getElementById('chat-panel').style.display = 'flex';
+      currentView = 'chat';
+    } else if (view === 'dreem') {
+      document.getElementById('dreem-feed').style.display = 'flex';
+      loadDreemFeed();
+      currentView = 'dreem';
+    }
+  }
 
   // ======================
-  // DOM
+  // MOOD
   // ======================
-  const authContainer = document.getElementById('auth-container');
-  const appContainer = document.getElementById('app-container');
-  const pinModal = document.getElementById('pin-modal');
-  const moodModal = document.getElementById('mood-modal');
-
-  // ======================
-  // INIT
-  // ======================
-  document.getElementById('mood-bubble').addEventListener('click', () => {
-    moodModal.style.display = 'flex';
-  });
-
-  document.getElementById('mood-save').addEventListener('click', saveMood);
-  document.getElementById('mood-text').addEventListener('input', updateWordCount);
-
   function updateWordCount() {
     const text = document.getElementById('mood-text').value.trim();
     const words = text ? text.split(/\s+/).length : 0;
@@ -866,7 +869,7 @@
     if (words > 60) return;
     dailyMood = text || 'Mood not set today';
     document.getElementById('mood-bubble').textContent = dailyMood;
-    moodModal.style.display = 'none';
+    document.getElementById('mood-modal').style.display = 'none';
     await supabase.from('users').update({ daily_mood: dailyMood }).eq('id', currentUser.id);
   }
 
@@ -880,12 +883,11 @@
     }
 
     return new Promise((resolve) => {
-      pinModal.style.display = 'flex';
+      document.getElementById('pin-modal').style.display = 'flex';
       document.getElementById('pin-error').textContent = '';
       document.getElementById('pin-input').value = '';
 
-      const submitBtn = document.getElementById('pin-submit');
-      const handlePin = async () => {
+      window.submitPin = async () => {
         const pin = document.getElementById('pin-input').value;
         if (!/^\d{6}$/.test(pin)) {
           document.getElementById('pin-error').textContent = 'PIN must be 6 digits';
@@ -894,7 +896,7 @@
 
         const hash = await hashPin(pin);
         if (hash === pinHash) {
-          pinModal.style.display = 'none';
+          document.getElementById('pin-modal').style.display = 'none';
           failedAttempts = 0;
           resolve(true);
         } else {
@@ -907,11 +909,6 @@
             document.getElementById('pin-error').textContent = `Incorrect PIN (${5 - failedAttempts} tries left)`;
           }
         }
-      };
-
-      submitBtn.onclick = handlePin;
-      document.getElementById('pin-input').onkeypress = (e) => {
-        if (e.key === 'Enter') handlePin();
       };
     });
   }
@@ -926,7 +923,6 @@
 
   async function sendSecurityAlert() {
     console.log("SECURITY ALERT: 5 failed PIN attempts. Sending email...");
-    // In production: call Supabase Edge Function
   }
 
   // ======================
@@ -994,7 +990,7 @@
   // ======================
   // AUTH LOGIC
   // ======================
-  document.getElementById('signup-btn').addEventListener('click', async () => {
+  async function signup() {
     if (!validateSignup()) return;
 
     const fullName = document.getElementById('full-name').value.trim();
@@ -1034,14 +1030,14 @@
       if (dbErr) throw dbErr;
 
       alert('✅ Account created! Please log in.');
-      showLoginForm(); // ✅ NOW SWITCHES TO LOGIN AFTER SUCCESS
+      showLoginForm();
       
     } catch (err) {
       alert('❌ Sign-up failed: ' + (err.message || 'Unknown error'));
     }
-  });
+  }
 
-  document.getElementById('login-btn').addEventListener('click', async () => {
+  async function login() {
     const identifier = document.getElementById('login-identifier').value.trim();
     const password = document.getElementById('login-password').value;
 
@@ -1074,7 +1070,7 @@
     } catch (err) {
       alert('Login failed: ' + (err.message || 'Invalid email/username or password'));
     }
-  });
+  }
 
   // ======================
   // SESSION MANAGEMENT
@@ -1083,12 +1079,12 @@
     const {  { session } } = await supabase.auth.getSession();
     if (session?.user) {
       currentUser = session.user;
-      authContainer.style.display = 'none';
-      appContainer.style.display = 'flex';
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('app-container').style.display = 'flex';
       initApp();
     } else {
-      authContainer.style.display = 'flex';
-      appContainer.style.display = 'none';
+      document.getElementById('auth-container').style.display = 'flex';
+      document.getElementById('app-container').style.display = 'none';
     }
   }
 
@@ -1106,23 +1102,6 @@
       dailyMood = 'Mood not set today';
       document.getElementById('mood-bubble').textContent = dailyMood;
     }, midnight - now);
-
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      checkAuthState();
-    });
-
-    document.getElementById('update-profile-btn').addEventListener('click', async () => {
-      const newUsername = prompt('New username:', document.getElementById('profile-username').textContent);
-      if (newUsername) {
-        const { error } = await supabase.from('users').update({ username: newUsername }).eq('id', currentUser.id);
-        if (error) return alert('Update failed');
-        document.getElementById('profile-username').textContent = newUsername;
-      }
-    });
-
-    document.getElementById('post-dreem-btn').addEventListener('click', openDreemUpload);
-    document.getElementById('send-btn').addEventListener('click', sendMessage);
   }
 
   async function loadProfile() {
@@ -1140,9 +1119,166 @@
     document.getElementById('mood-bubble').textContent = dailyMood;
   }
 
-  // ... [Core functions like loadFriends, openDreemUpload, etc. remain — fully functional]
+  async function loadFriends() {
+    const { data, error } = await supabase.from('users').select('friends').eq('id', currentUser.id).single();
+    const list = document.getElementById('friends-list');
+    if (error || !data.friends?.length) {
+      list.innerHTML = '<div style="padding:12px;color:#777;">No friends</div>';
+      return;
+    }
+    list.innerHTML = '';
+    for (const uid of data.friends) {
+      const {  user } = await supabase.from('users').select('username').eq('id', uid).single();
+      if (user) {
+        const el = document.createElement('div');
+        el.className = 'friend-item';
+        el.innerHTML = `
+          <div class="friend-name">
+            <div class="online-indicator"></div>
+            ${escapeHtml(user.username)}
+          </div>
+          <button onclick="startChat('${uid}', '${escapeHtml(user.username)}')">Message</button>
+        `;
+        list.appendChild(el);
+      }
+    }
+  }
 
-  // Start
+  function startChat(uid, name) {
+    activeChatUid = uid;
+    document.getElementById('chat-header').innerHTML = `<span>${name}</span>`;
+    document.getElementById('chat-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    showView('chat');
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !activeChatUid) return;
+    const chatId = getChatId(currentUser.id, activeChatUid);
+    const { error } = await supabase.from('messages').insert({ chat_id: chatId, sender: currentUser.id, text });
+    if (error) alert('Failed to send');
+    else input.value = '';
+  }
+
+  function getChatId(a, b) {
+    return [a, b].sort().join('_');
+  }
+
+  function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<>"']/g, s => map[s]);
+  }
+
+  async function openDreemUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Only JPG, PNG, MP4, or MOV files allowed.');
+        return;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        alert('File too large! Max 50MB.');
+        return;
+      }
+      const caption = prompt("Add a caption (optional):", "") || '';
+      try {
+        const filePath = `dreem/${currentUser.id}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('dreem')
+          .upload(filePath, file, { upsert: false });
+        if (uploadError) throw uploadError;
+        const { error: dbError } = await supabase
+          .from('dreem_posts')
+          .insert({
+            user_id: currentUser.id,
+            file_path: filePath,
+            caption: caption,
+            mime_type: file.type
+          });
+        if (dbError) throw dbError;
+        alert('✅ Posted to Dreem!');
+        if (currentView === 'dreem') loadDreemFeed();
+      } catch (err) {
+        console.error('Dreem post failed:', err);
+        alert('❌ Failed to post: ' + (err.message || 'Unknown error'));
+      }
+    };
+    input.click();
+  }
+
+  async function loadDreemFeed() {
+    const dreemFeed = document.getElementById('dreem-feed');
+    dreemFeed.innerHTML = '<div class="dreem-empty">No Dreem posts yet...</div>';
+
+    const { data, error } = await supabase
+      .from('dreem_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data?.length) return;
+
+    dreemFeed.innerHTML = '';
+    for (const post of data) {
+      const card = document.createElement('div');
+      card.className = 'dreem-card';
+
+      const {  urlData } = supabase.storage
+        .from('dreem')
+        .getPublicUrl(post.file_path);
+
+      const isVideo = post.mime_type.startsWith('video/');
+      let mediaHTML = '';
+
+      if (isVideo) {
+        mediaHTML = `<video class="dreem-video" muted playsinline><source src="${urlData.publicUrl}" type="${post.mime_type}"></video>`;
+      } else {
+        mediaHTML = `<img src="${urlData.publicUrl}" class="dreem-video" style="object-fit:contain;">`;
+      }
+
+      card.innerHTML = `
+        ${mediaHTML}
+        <div class="dreem-user">@${post.user_id.substring(0,8)}</div>
+        ${post.caption ? `<div class="dreem-overlay">${escapeHtml(post.caption)}</div>` : ''}
+      `;
+
+      dreemFeed.appendChild(card);
+
+      if (isVideo) {
+        const video = card.querySelector('video');
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) video.play().catch(() => {});
+            else video.pause();
+          });
+        }, { threshold: 0.7 });
+        observer.observe(card);
+      }
+    }
+  }
+
+  function updateProfile() {
+    const newUsername = prompt('New username:', document.getElementById('profile-username').textContent);
+    if (newUsername) {
+      supabase.from('users').update({ username: newUsername }).eq('id', currentUser.id)
+        .then(({ error }) => {
+          if (error) return alert('Update failed');
+          document.getElementById('profile-username').textContent = newUsername;
+        });
+    }
+  }
+
+  function logout() {
+    supabase.auth.signOut().then(() => checkAuthState());
+  }
+
+  // Start app
   checkAuthState();
 </script>
 
